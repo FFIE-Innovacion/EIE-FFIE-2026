@@ -73,8 +73,8 @@
     var c=ctx();
     if(!c){ msel.disabled=true; msel.hidden=true; return; }
     var ms=D.munis.filter(function(m){return m.departamento===c.nombre && m.muestra_valida>0;})
-      .sort(function(a,b){return a.mpio_cod.localeCompare(b.mpio_cod);});
-    if(ms.length){ ms.forEach(function(m){ var o=document.createElement("option"); o.value=m.mpio_cod; o.textContent=m.mpio_cod+" · n="+m.muestra_valida; msel.appendChild(o); });
+      .sort(function(a,b){return a.nombre.localeCompare(b.nombre,"es");});
+    if(ms.length){ ms.forEach(function(m){ var o=document.createElement("option"); o.value=m.mpio_cod; o.textContent=m.nombre+" · n="+m.muestra_valida; msel.appendChild(o); });
       msel.disabled=false; msel.hidden=false; }
     else { msel.disabled=true; msel.hidden=true; }
   }
@@ -96,7 +96,7 @@
   function render(){
     $("#btn-reset").hidden = !(state.dep||state.mpio||state.zona!=="total");
     var c=ctx(), m=ctxMpio();
-    var nombre = m?("Municipio "+m.mpio_cod):(c?c.nombre:"Colombia");
+    var nombre = m?m.nombre:(c?c.nombre:"Colombia");
     var sub = m?("en "+c.nombre):(c?(c.es_distrito_capital?"Distrito Capital":"Departamento"):"Total nacional");
     $("#scope-name").textContent=nombre; $("#scope-sub").textContent=sub;
     $("#filter-hint").textContent = c?("Filtrando por "+nombre+(state.zona!=="total"?(" · zona "+state.zona):"")):"Vista nacional. Elige un ámbito o haz clic en el mapa.";
@@ -197,7 +197,7 @@
   /* ---------- Caution + notas ---------- */
   function pintarCaution(){
     var c=ctx(), m=ctxMpio(); var box=$("#caution-box"); var ins=null;
-    if(m&&m.suficiencia==="insuficiente")ins=m.mpio_cod;
+    if(m&&m.suficiencia==="insuficiente")ins=m.nombre;
     else if(c&&c.suficiencia==="insuficiente")ins=c.nombre;
     if(ins){ box.hidden=false;
       box.innerHTML="<b>Precaución — muestra insuficiente.</b> El ámbito seleccionado ("+ins+") tiene menos de "+D.suf.umbral+" sedes con encuesta válida. Su IEIE debe leerse como <b>estimación con precaución</b>, no como una inferencia concluyente."; }
@@ -411,7 +411,7 @@
 
   function fichaScope(){ // devuelve {nombre, sub, obj, nivel, cod2}
     var c=ctx(), m=ctxMpio();
-    if(m)return {nombre:"Municipio "+m.mpio_cod, sub:"en "+(c?c.nombre:""), obj:m, nivel:"municipio", cod2:c?c.cod:null};
+    if(m)return {nombre:m.nombre, sub:"Municipio en "+(c?c.nombre:""), obj:m, nivel:"municipio", cod2:c?c.cod:null};
     if(c)return {nombre:c.nombre, sub:c.es_distrito_capital?"Distrito Capital":"Departamento", obj:c, nivel:"departamento", cod2:c.cod};
     return {nombre:"Colombia — total nacional", sub:"Nivel país", obj:D.nac, nivel:"nacional", cod2:null};
   }
@@ -738,7 +738,7 @@
       var n=D.nac;
       $("#m2-kpis").innerHTML=kpiRow("IEIE nacional",fmt(n.ieie_nacional,2))+kpiRow("Muestra",fmtInt(n.muestra_valida))+kpiRow("Cobertura",pct(n.cobertura_pct));
       $("#m2-suf").hidden=true; $("#m2-note").textContent="Haz clic en un territorio para ver su ficha resumida."; return; }
-    $("#m2-name").textContent=isMuni?(d.departamento+" · muni "+d.mpio_cod):d.nombre;
+    $("#m2-name").textContent=isMuni?(d.nombre+" ("+d.departamento+")"):d.nombre;
     $("#m2-sub").textContent=isMuni?"Nivel municipal":(d.es_distrito_capital?"Distrito Capital":"Departamento");
     $("#m2-kpis").innerHTML=kpiRow("IEIE",fmt(d.ieie,2)+(catOf(d.ieie)?" · "+catOf(d.ieie):""))+
       kpiRow("Muestra / marco",fmtInt(d.muestra_valida)+" / "+fmtInt(d.marco_sedes))+

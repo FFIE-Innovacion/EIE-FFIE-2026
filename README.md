@@ -3,7 +3,7 @@
 Tablero web estático de consulta del **Índice de Estado de Infraestructura Educativa (IEIE)**
 de las sedes educativas oficiales de Colombia — encuesta FFIE 2026.
 
-**Demo de la estructura publicada:** `https://ffie-innovacion.github.io/EIE-FFIE-2026/`
+**Demo de la estructura publicada:** `https://ffie-innovacion.github.io/EIE-FFIE2026/`
 
 ---
 
