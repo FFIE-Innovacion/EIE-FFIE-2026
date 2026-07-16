@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard IEIE · FFIE 2026</title>
+<meta name="description" content="Índice de Estado de Infraestructura Educativa (IEIE) 2026 — FFIE. Tablero de consulta nacional y territorial.">
+<link rel="icon" type="image/svg+xml" href="assets/logo.svg">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<a class="skip-link" href="#contenido">Saltar al contenido</a>
+
+<header id="topbar">
+  <div class="wrap topbar-in">
+    <div class="brand">
+      <img src="assets/logo.svg" alt="" class="logo" aria-hidden="true">
+      <div>
+        <p class="brand-sup">Fondo de Financiamiento de la Infraestructura Educativa · FFIE</p>
+        <h1>Índice de Estado de Infraestructura Educativa — IEIE 2026</h1>
+      </div>
+    </div>
+    <p class="brand-meta" id="brand-meta" aria-live="polite">cargando…</p>
+  </div>
+  <nav class="wrap tabs" id="tabs" role="tablist" aria-label="Secciones del tablero">
+    <button class="tab is-active" data-tab="resumen" role="tab" aria-selected="true" id="tab-resumen">Resumen</button>
+    <button class="tab" data-tab="indice" role="tab" aria-selected="false" id="tab-indice">Análisis del IEIE</button>
+    <button class="tab" data-tab="ficha" role="tab" aria-selected="false" id="tab-ficha">Ficha territorial y temática</button>
+    <button class="tab" data-tab="mapas" role="tab" aria-selected="false" id="tab-mapas">Mapas interactivos</button>
+    <button class="tab" data-tab="metodologia" role="tab" aria-selected="false" id="tab-metodologia">Metodología y calidad</button>
+  </nav>
+</header>
+
+<div class="wrap filterbar">
+  <div class="filter-group">
+    <label for="dep-select">Ámbito territorial</label>
+    <select id="dep-select" aria-label="Seleccionar departamento">
+      <option value="">Colombia — total nacional</option>
+    </select>
+    <select id="mpio-select" aria-label="Seleccionar municipio" disabled hidden>
+      <option value="">Todos los municipios</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <label for="zona-select">Zona</label>
+    <select id="zona-select" aria-label="Seleccionar zona">
+      <option value="total">Total</option>
+      <option value="urbano">Urbana</option>
+      <option value="rural">Rural</option>
+    </select>
+  </div>
+  <div class="filter-group" id="grp-cobertura" hidden>
+    <label for="cob-select">Tipo de sede</label>
+    <select id="cob-select" aria-label="Filtrar por tipo de cobertura educativa">
+      <option value="">Todas</option>
+    </select>
+  </div>
+  <button class="btn-ghost" id="btn-reset" hidden>Volver a nacional</button>
+  <span class="filter-hint" id="filter-hint"></span>
+</div>
+
+<main class="wrap" id="contenido">
+
+  <!-- ============ RESUMEN ============ -->
+  <section class="panel is-active" id="panel-resumen" role="tabpanel" aria-labelledby="tab-resumen" tabindex="0">
+    <div class="resumen-grid">
+      <!-- columna izquierda: control -->
+      <aside class="card control-col" aria-label="Panel de control">
+        <p class="col-title">Ámbito seleccionado</p>
+        <p class="scope-name" id="scope-name">Colombia</p>
+        <p class="scope-sub" id="scope-sub">Total nacional</p>
+        <div class="control-actions">
+          <button class="btn-ghost sm" id="btn-map-reset">Restablecer mapa</button>
+        </div>
+        <p class="corte-nota" id="corte-nota"></p>
+      </aside>
+
+      <!-- columna central: mapa -->
+      <div class="card map-col">
+        <div class="map-head">
+          <h2>Mapa territorial del IEIE</h2>
+          <span class="muted" id="map-metric-label">IEIE promedio por departamento</span>
+        </div>
+        <div id="map" role="img" aria-label="Mapa coroplético de Colombia con el IEIE por departamento"></div>
+        <div class="legend" id="map-legend" aria-hidden="false"></div>
+      </div>
+
+      <!-- columna derecha: KPIs -->
+      <aside class="kpi-col" aria-label="Indicadores del ámbito">
+        <div class="kpi"><span class="k-lbl">Sedes del marco</span><span class="k-val" id="kpi-marco">—</span><span class="k-sub">marco poblacional</span></div>
+        <div class="kpi"><span class="k-lbl">Muestra válida</span><span class="k-val" id="kpi-muestra">—</span><span class="k-sub">sedes con encuesta</span></div>
+        <div class="kpi"><span class="k-lbl">Cobertura</span><span class="k-val" id="kpi-cobertura">—</span><span class="k-sub">muestra / marco</span></div>
+        <div class="kpi kpi-ieie"><span class="k-lbl">IEIE</span><span class="k-val" id="kpi-ieie">—</span><span class="k-sub" id="kpi-ieie-cat">escala 0–100</span></div>
+        <div class="kpi"><span class="k-lbl">Dimensión más crítica</span><span class="k-val sm" id="kpi-critica">—</span><span class="k-sub" id="kpi-critica-lbl"></span></div>
+        <div class="chip-suf" id="chip-suf" hidden></div>
+      </aside>
+    </div>
+
+    <!-- recuadro precaución condicional -->
+    <div class="caution" id="caution-box" role="note" hidden></div>
+
+    <div class="grid-2">
+      <div class="card">
+        <h2>Ranking territorial <span class="muted sm">IEIE promedio</span></h2>
+        <p class="muted mini">32 departamentos y Bogotá D.C., ordenados por IEIE. El ámbito activo se resalta.</p>
+        <div id="chart-ranking" class="chart chart-xtall"></div>
+      </div>
+      <div class="card">
+        <h2>Comparación rural–urbana</h2>
+        <p class="muted mini">IEIE promedio por zona en el ámbito seleccionado frente al nacional.</p>
+        <div id="chart-ru" class="chart"></div>
+        <div class="card">
+          <h2>Distribución del IEIE por categoría</h2>
+          <p class="muted mini">Participación de sedes por categoría (barras apiladas al 100 %).</p>
+          <div id="chart-dist" class="chart chart-short"></div>
+        </div>
+      </div>
+    </div>
+
+    <p class="notas-metod" id="notas-resumen"></p>
+  </section>
+
+  <!-- ============ ANÁLISIS DEL IEIE ============ -->
+  <section class="panel" id="panel-indice" role="tabpanel" aria-labelledby="tab-indice" tabindex="0" hidden>
+    <div class="card nota-fija">
+      <p>El IEIE se expresa en una escala de 0 a 100. Los valores más altos representan mejores
+      condiciones relativas de infraestructura educativa, de acuerdo con las dimensiones y reglas
+      metodológicas definidas para el índice. Su interpretación debe considerar la cobertura y
+      suficiencia de la muestra en cada territorio.</p>
+    </div>
+
+    <div class="card">
+      <div class="an-head">
+        <h2>Perfil por dimensión <span class="scope-tag" id="an-scope">Nacional</span></h2>
+        <div class="an-legend" id="dumbbell-legend"></div>
+      </div>
+      <p class="muted mini">Comparación por dimensión: territorio seleccionado, promedio nacional,
+      y resultado rural y urbano. El código 999 (No calculable) se excluye.</p>
+      <div id="chart-dumbbell" class="chart chart-xtall"></div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <h2>Brechas frente al promedio nacional</h2>
+        <p class="muted mini">Diferencia en puntos por dimensión (territorio − nacional).</p>
+        <div id="chart-brechas" class="chart chart-tall"></div>
+      </div>
+      <div class="card">
+        <div class="an-head">
+          <h2>Radar del perfil <span class="muted sm">(vista secundaria)</span></h2>
+          <button class="btn-ghost sm" id="btn-toggle-radar" aria-expanded="false">Mostrar radar</button>
+        </div>
+        <div id="chart-radar" class="chart chart-tall" hidden></div>
+        <div class="an-kpis" id="an-kpis"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Glosario de dimensiones</h2>
+      <p class="muted mini">Definiciones oficiales del índice. Haz clic en cada dimensión para desplegar.</p>
+      <div class="glosario" id="glosario"></div>
+      <p class="fuente" id="glosario-fuente"></p>
+    </div>
+  </section>
+
+  <!-- ============ FICHA TERRITORIAL Y TEMÁTICA ============ -->
+  <section class="panel" id="panel-ficha" role="tabpanel" aria-labelledby="tab-ficha" tabindex="0" hidden>
+
+    <div class="ficha-head">
+      <div>
+        <h2 id="ficha-nombre">Colombia — total nacional</h2>
+        <p class="muted" id="ficha-sub"></p>
+      </div>
+      <div class="chip-suf" id="ficha-chip"></div>
+    </div>
+
+    <!-- KPIs de ficha -->
+    <div class="ficha-kpis" id="ficha-kpis"></div>
+
+    <div class="grid-2">
+      <div class="card">
+        <h2>Comparación con el nacional</h2>
+        <p class="muted mini">IEIE del territorio frente al promedio nacional.</p>
+        <div id="ficha-comp" class="chart chart-short"></div>
+      </div>
+      <div class="card">
+        <h2>Comparación rural–urbana</h2>
+        <p class="muted mini">IEIE por zona en el ámbito seleccionado.</p>
+        <div id="ficha-ru" class="chart chart-short"></div>
+      </div>
+    </div>
+
+    <!-- narrativa automática -->
+    <div class="card narrativa" id="ficha-narrativa" role="note"></div>
+
+    <div class="grid-2">
+      <div class="card">
+        <h2>Condiciones y alertas</h2>
+        <div class="chips-row" id="ficha-alertas"></div>
+      </div>
+      <div class="card">
+        <h2>Potencialidades</h2>
+        <div class="chips-row" id="ficha-fortalezas"></div>
+      </div>
+    </div>
+
+    <!-- catálogo de variables temáticas -->
+    <div class="card">
+      <div class="an-head">
+        <h2>Análisis por variable de la encuesta</h2>
+        <div class="var-controls">
+          <label for="dim-select" class="sr-only">Dimensión</label>
+          <select id="dim-select" aria-label="Filtrar variables por dimensión">
+            <option value="">Todas las dimensiones</option>
+          </select>
+          <label for="var-select" class="sr-only">Variable</label>
+          <select id="var-select" aria-label="Seleccionar variable"></select>
+        </div>
+      </div>
+      <div class="var-meta" id="var-meta"></div>
+      <div id="var-chart" class="chart chart-tall"></div>
+      <div class="var-cats" id="var-cat-filter"></div>
+      <p class="var-foot" id="var-foot"></p>
+    </div>
+
+  </section>
+
+  <!-- ============ MAPAS INTERACTIVOS ============ -->
+  <section class="panel" id="panel-mapas" role="tabpanel" aria-labelledby="tab-mapas" tabindex="0" hidden>
+    <div class="mapas-layout">
+      <div class="card map-toolbar">
+        <div class="mt-group">
+          <label for="capa-select">Capa</label>
+          <select id="capa-select" aria-label="Seleccionar capa del mapa"></select>
+        </div>
+        <div class="mt-group" id="mt-tematica" hidden>
+          <label for="capa-var-select">Variable</label>
+          <select id="capa-var-select" aria-label="Variable temática del mapa"></select>
+        </div>
+        <div class="mt-group">
+          <label for="nivel-select">Nivel</label>
+          <select id="nivel-select" aria-label="Nivel geográfico">
+            <option value="departamental">Departamental</option>
+            <option value="municipal">Municipal</option>
+          </select>
+        </div>
+        <div class="mt-group">
+          <label for="map-buscar">Buscar territorio</label>
+          <input type="search" id="map-buscar" placeholder="Nombre de departamento" autocomplete="off" list="map-buscar-list">
+          <datalist id="map-buscar-list"></datalist>
+        </div>
+        <button class="btn-ghost sm" id="map2-reset">Reiniciar vista</button>
+      </div>
+
+      <div class="mapas-main">
+        <div class="card map-big-wrap">
+          <div id="map2" role="img" aria-label="Mapa interactivo del IEIE"></div>
+          <div class="legend" id="map2-legend"></div>
+          <p class="map-src" id="map2-src"></p>
+        </div>
+        <aside class="card map-side" id="map2-side" aria-live="polite">
+          <p class="col-title">Panel territorial</p>
+          <p class="scope-name" id="m2-name">Colombia</p>
+          <p class="scope-sub" id="m2-sub">Vista nacional</p>
+          <div class="m2-kpis" id="m2-kpis"></div>
+          <div class="chip-suf" id="m2-suf" hidden></div>
+          <p class="m2-note" id="m2-note"></p>
+        </aside>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ METODOLOGÍA ============ -->
+  <section class="panel" id="panel-metodologia" role="tabpanel" aria-labelledby="tab-metodologia" tabindex="0" hidden>
+    <div class="card">
+      <h2>Objetivo y alcance</h2>
+      <ul class="met-list" id="met-objetivo"></ul>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <h2>Fuentes y unidad de análisis</h2>
+        <ul class="met-list" id="met-fuentes"></ul>
+      </div>
+      <div class="card">
+        <h2>Marco poblacional y muestra</h2>
+        <ul class="met-list" id="met-marco"></ul>
+      </div>
+    </div>
+    <div class="card">
+      <h2>El índice IEIE</h2>
+      <ul class="met-list" id="met-indice"></ul>
+      <h2 style="margin-top:14px">Escala e interpretación</h2>
+      <div class="tabla-cat" id="tabla-categorias"></div>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <h2>Agregaciones y comparaciones</h2>
+        <ul class="met-list" id="met-agreg"></ul>
+      </div>
+      <div class="card">
+        <h2>Suficiencia y valores faltantes</h2>
+        <ul class="met-list" id="met-suf"></ul>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Calidad de la información</h2>
+      <div class="tabla-cal" id="tabla-calidad"></div>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <h2>Privacidad y anonimización</h2>
+        <ul class="met-list" id="met-priv"></ul>
+      </div>
+      <div class="card">
+        <h2>Limitaciones y precauciones</h2>
+        <ul class="met-list" id="met-lim"></ul>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Fuente de cada componente</h2>
+      <div class="tabla-cal" id="tabla-fuentes"></div>
+      <p class="fuente" id="metod-fuente"></p>
+    </div>
+  </section>
+
+</main>
+
+<footer><div class="wrap muted">FFIE 2026 · IEIE — Tablero de consulta de infraestructura educativa. Cobertura territorial: 32 departamentos y Bogotá D.C.</div></footer>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
