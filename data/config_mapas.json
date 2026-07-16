@@ -1,0 +1,109 @@
+{
+ "prioridad_exploratoria": {
+  "titulo": "Prioridad territorial (exploratoria)",
+  "aviso": "NO es una clasificación oficial. Es una regla exploratoria para orientar la lectura, construida con umbrales transparentes y editables en este archivo.",
+  "estados": [
+   {
+    "clave": "no_evaluable",
+    "etiqueta": "No evaluable — requiere fortalecimiento de la muestra",
+    "color": "#9aa0a6",
+    "regla": "suficiencia == insuficiente"
+   },
+   {
+    "clave": "sin_info",
+    "etiqueta": "Sin información",
+    "color": "#dcd3e4",
+    "regla": "sin muestra válida"
+   },
+   {
+    "clave": "alta",
+    "etiqueta": "Necesidad relativa alta",
+    "color": "#b5341f",
+    "regla": "evaluable y IEIE < 60 (categoría Deficiente o Crítico)"
+   },
+   {
+    "clave": "media",
+    "etiqueta": "Necesidad relativa media",
+    "color": "#e0a253",
+    "regla": "evaluable y 60 <= IEIE < 70"
+   },
+   {
+    "clave": "baja",
+    "etiqueta": "Necesidad relativa baja",
+    "color": "#2f9e8f",
+    "regla": "evaluable y IEIE >= 70"
+   }
+  ],
+  "umbrales": {
+   "critico_deficiente": 60,
+   "medio": 70,
+   "suficiencia_min_sedes": 30
+  },
+  "orden_evaluacion": [
+   "no_evaluable_si_insuficiente",
+   "luego_por_ieie"
+  ],
+  "fuente_umbral": "Escala oficial IEIE (Deficiente <60, Aceptable 60–<80) e umbral de suficiencia 30 sedes; ver glosario_dimensiones.json y suficiencia_muestral.json."
+ },
+ "capas_mapa": [
+  {
+   "id": "ieie",
+   "titulo": "IEIE promedio",
+   "tipo": "secuencial_ieie",
+   "nivel": [
+    "departamental",
+    "municipal"
+   ]
+  },
+  {
+   "id": "cobertura",
+   "titulo": "Cobertura de la encuesta",
+   "tipo": "secuencial",
+   "nivel": [
+    "departamental",
+    "municipal"
+   ]
+  },
+  {
+   "id": "perfil_ru",
+   "titulo": "Perfil rural-urbano (brecha)",
+   "tipo": "divergente",
+   "nivel": [
+    "departamental"
+   ]
+  },
+  {
+   "id": "dim_critica",
+   "titulo": "Dimensión más crítica",
+   "tipo": "categorico",
+   "nivel": [
+    "departamental"
+   ]
+  },
+  {
+   "id": "suficiencia",
+   "titulo": "Suficiencia muestral",
+   "tipo": "binario",
+   "nivel": [
+    "departamental",
+    "municipal"
+   ]
+  },
+  {
+   "id": "prioridad",
+   "titulo": "Prioridad territorial (exploratoria)",
+   "tipo": "prioridad",
+   "nivel": [
+    "departamental"
+   ]
+  },
+  {
+   "id": "tematica",
+   "titulo": "Variable temática",
+   "tipo": "secuencial",
+   "nivel": [
+    "departamental"
+   ]
+  }
+ ]
+}
