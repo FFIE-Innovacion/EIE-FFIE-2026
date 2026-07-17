@@ -106,3 +106,18 @@ Formato basado en Keep a Changelog. Versionado por loops hasta el release v3.
   (~18.897 sedes). Publicado en GitHub Pages.
 - **v1 / Loops 1–4.5:** iteraciones previas (base anonimizada, tablas, mapas PNG,
   estructura HTML/CSS/JS).
+
+### LOOP R2 — Documento ArcGIS + XLSX limpio
+- **Added (docs externos, en outputs):** Propuesta_Diseno_UX_UI_Geovisor_IEIE_FFIE_2026.docx/.pdf
+  (documento técnico para replicar el geovisor en ArcGIS; 23 secciones, describe el dashboard v3_1 real).
+- **Added:** Datos_Limpios_IEIE_FFIE_2026_ArcGIS.xlsx (datos agregados + reglas de agregación para join por DANE).
+- **Verificado:** base original intacta; estimaciones IEIE sin cambios; sin winsorización silenciosa.
+
+### LOOP R4 — Validación final y nueva versión (v3_1)
+- **Validado:** dashboard 23/23, datos 15/15, paquete SIG 16/16 → 54/54 OK global. Sin pruebas fallidas.
+- **Verificados 2 falsos positivos:** «Componentes» aplicado en toda la UI (sin «Dimensión» visible);
+  la cadena «email» en sedes/70.json es el apellido «Yemail» del nombre institucional, no un correo.
+- **Confirmado:** base original intacta; estimaciones IEIE sin cambios; sin winsorización silenciosa;
+  códigos DANE como texto; privacidad sin fugas.
+- **Entrega:** carpeta y ZIP del dashboard v3_1, documentos UX/UI (Word+PDF), XLSX limpio, ZIP SIG,
+  VALIDATION_REPORT consolidado, instrucciones GitHub y ArcGIS.

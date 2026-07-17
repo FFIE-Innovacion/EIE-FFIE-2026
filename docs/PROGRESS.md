@@ -161,3 +161,39 @@ Control de avance por loops. Leer al iniciar cada loop.
 - Definir si la capa de sedes conserva nombre de sede/IE o solo código DANE (para explorador).
 - Confirmar si se añade capa municipal al mapa (shapefile MPIO disponible, 66 MB → simplificar).
 - Revisar en Chocó/Vichada/Vaupés (IEIE más bajos) si requieren nota de contexto.
+
+### LOOP R2 — Propuesta UX/UI y arquitectura del geovisor ArcGIS ✔ COMPLETADO
+- **Verificación previa (a solicitud del usuario):** (1) la base original FFIE_2026_Base_Unida_IEIE.xlsx
+  NO fue modificada (montaje solo lectura; lecturas con read_only=True; ningún .save sobre ella);
+  (2) las estimaciones del IEIE NO cambiaron (IEIE 69,86; urbano 74,86; rural 68,62; muestra 18.897;
+  componentes idénticos a v3_2); (3) sin winsorización silenciosa: el valor extremo de estudiantes
+  (5.444.467) se conserva y solo se marca por bandera.
+- **Documentos generados:** `Propuesta_Diseno_UX_UI_Geovisor_IEIE_FFIE_2026.docx` y `.pdf` (23 secciones):
+  objetivo, audiencias, casos de uso, arquitectura funcional/visual, modelo estrella, esquema de 13 capas,
+  llaves DANE, cruces de variables, indicadores, agregaciones, filtros, pop-ups, fichas, gráficos por tipo,
+  simbología, suficiencia, escalas/proyecciones, publicación ArcGIS (tabla de equivalencias + pasos),
+  privacidad, actualización, control de calidad y anexos.
+- **XLSX limpio para ArcGIS:** `Datos_Limpios_IEIE_FFIE_2026_ArcGIS.xlsx` (10 hojas: LEEME, departamentos,
+  componentes_depto, municipios, var_categoricas, var_numericas, suficiencia, reglas_agregacion,
+  dim_componentes, dim_categorias). Llaves por código DANE (texto).
+- **Imágenes:** modelo estrella, arquitectura visual, gráfico por tipo de variable.
+
+### LOOP R3 — Paquete de datos para ArcGIS ✔ COMPLETADO
+- **Entregable:** Paquete_SIG_ArcGIS_IEIE_FFIE_2026.zip (independiente del dashboard, 7,6 MB, 132 archivos).
+  NO incluye Excel originales ni variables personales.
+- **01_xlsx:** Datos_Limpios_Geovisor_ArcGIS_IEIE_FFIE_2026.xlsx con las 18 hojas requeridas
+  (README, diccionario_campos, alias_shapefile, reglas_agregacion, departamentos_ieie, municipios_ieie,
+  departamentos_zona, componentes_departamento, componentes_municipio, variables_categoricas_dpto/_mpio,
+  variables_numericas_dpto/_mpio, cobertura, suficiencia, metadata_capas, advertencias, control_calidad).
+- **02_shapefiles:** 9 capas × 2 CRS (WGS84 EPSG:4326 y MAGNA-SIRGAS EPSG:4686), cada una con
+  .shp/.shx/.dbf/.prj/.cpg y zipeada individualmente. Nombres de campo cortos (<=10) con alias documentado.
+  Códigos DANE como texto (tipo C en DBF), ceros iniciales conservados.
+- **03_geojson:** 12 capas en WGS84/UTF-8 + tabla relacionada variables_categoricas_tabla.json (une por cod2,
+  evita duplicar geometría). Municipios sin registros = 'Sin información' (no 0).
+- **04_metadata:** CATALOGO_CAPAS.xlsx, METADATA_CAPAS.md, GUIA_CARGA_ARCGIS.md, MODELO_RELACIONES_ARCGIS.md.
+- **05_simbologia:** rampas por capa (JSON); insuficiente/sin dato en gris (≠ IEIE bajo).
+- **06_documentacion:** README_PAQUETE.md + VALIDACION_SIG.xlsx (51/51 pruebas OK).
+- **07_scripts:** regenerar_paquete.md.
+- **CRS auditado:** original MGN 2018 = EPSG:4686 (MAGNA-SIRGAS); versión web reproyectada a WGS84.
+- **Control de calidad:** geometrías válidas, sin vacíos, sin duplicados, códigos texto, correspondencia
+  (1 municipio 27493 sin geometría, documentado), consistencia XLSX-SHP-GeoJSON. 51/51 OK.
