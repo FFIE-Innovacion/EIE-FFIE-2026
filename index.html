@@ -16,19 +16,28 @@
 <header id="topbar">
   <div class="wrap topbar-in">
     <div class="brand">
-      <img src="assets/logo.svg" alt="" class="logo" aria-hidden="true">
+      <img src="assets/logo_encuesta.png" alt="Cuenta tu Colegio — Encuesta Nacional de Infraestructura Educativa" class="logo-enc">
       <div>
-        <p class="brand-sup">Fondo de Financiamiento de la Infraestructura Educativa · FFIE</p>
-        <h1>Índice de Estado de Infraestructura Educativa — IEIE 2026</h1>
+        <p class="brand-sup">Cuenta tu Colegio</p>
+        <h1>Encuesta Nacional de Infraestructura Educativa FFIE 2026</h1>
+        <p class="brand-subtitle">Evidencia territorial para conocer el estado de la infraestructura educativa</p>
       </div>
     </div>
-    <p class="brand-meta" id="brand-meta" aria-live="polite">cargando…</p>
+    <div class="topbar-right">
+      <button class="btn-geovisor" id="btn-geovisor" title="Ir al geovisor de mapas interactivos" aria-label="Abrir el geovisor de mapas interactivos">
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 8 3 16 6 23 3 23 18 16 21 8 18 1 21 1 6"/><line x1="8" y1="3" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="21"/></svg>
+        Geovisor
+      </button>
+      <p class="brand-meta" id="brand-meta" aria-live="polite">cargando…</p>
+    </div>
   </div>
   <nav class="wrap tabs" id="tabs" role="tablist" aria-label="Secciones del tablero">
     <button class="tab is-active" data-tab="resumen" role="tab" aria-selected="true" id="tab-resumen">Resumen</button>
     <button class="tab" data-tab="indice" role="tab" aria-selected="false" id="tab-indice">Análisis del IEIE</button>
     <button class="tab" data-tab="ficha" role="tab" aria-selected="false" id="tab-ficha">Ficha territorial y temática</button>
     <button class="tab" data-tab="mapas" role="tab" aria-selected="false" id="tab-mapas">Mapas interactivos</button>
+    <button class="tab" data-tab="glosario" role="tab" aria-selected="false" id="tab-glosario">Glosario</button>
+    <button class="tab" data-tab="explorador" role="tab" aria-selected="false" id="tab-explorador">Explorador de sedes</button>
     <button class="tab" data-tab="metodologia" role="tab" aria-selected="false" id="tab-metodologia">Metodología y calidad</button>
   </nav>
 </header>
@@ -51,12 +60,7 @@
       <option value="rural">Rural</option>
     </select>
   </div>
-  <div class="filter-group" id="grp-cobertura" hidden>
-    <label for="cob-select">Tipo de sede</label>
-    <select id="cob-select" aria-label="Filtrar por tipo de cobertura educativa">
-      <option value="">Todas</option>
-    </select>
-  </div>
+  <div class="filter-group" id="grp-cobertura" hidden></div>
   <button class="btn-ghost" id="btn-reset" hidden>Volver a nacional</button>
   <span class="filter-hint" id="filter-hint"></span>
 </div>
@@ -65,6 +69,18 @@
 
   <!-- ============ RESUMEN ============ -->
   <section class="panel is-active" id="panel-resumen" role="tabpanel" aria-labelledby="tab-resumen" tabindex="0">
+    <div class="ieie-intro card">
+      <div class="ieie-intro-body">
+        <h2>¿Qué es el IEIE?</h2>
+        <p>El <b>IEIE</b> es el <b>Índice de Estado de Infraestructura Educativa</b>. Se expresa en una
+        escala de <b>0 a 100</b>, donde un valor más alto representa <b>mejores condiciones relativas
+        declaradas</b>. Está conformado por <b>nueve componentes</b> (D1–D9) y proviene del
+        <b>autorreporte institucional</b> de cada sede. <b>No reemplaza una inspección técnica</b> de
+        ingeniería o arquitectura, y debe interpretarse junto con la <b>suficiencia muestral</b> del
+        territorio.</p>
+      </div>
+      <button class="btn-metodologia" id="btn-ir-metodologia">Conocer la metodología →</button>
+    </div>
     <div class="resumen-grid">
       <!-- columna izquierda: control -->
       <aside class="card control-col" aria-label="Panel de control">
@@ -93,7 +109,7 @@
         <div class="kpi"><span class="k-lbl">Muestra válida</span><span class="k-val" id="kpi-muestra">—</span><span class="k-sub">sedes con encuesta</span></div>
         <div class="kpi"><span class="k-lbl">Cobertura</span><span class="k-val" id="kpi-cobertura">—</span><span class="k-sub">muestra / marco</span></div>
         <div class="kpi kpi-ieie"><span class="k-lbl">IEIE</span><span class="k-val" id="kpi-ieie">—</span><span class="k-sub" id="kpi-ieie-cat">escala 0–100</span></div>
-        <div class="kpi"><span class="k-lbl">Dimensión más crítica</span><span class="k-val sm" id="kpi-critica">—</span><span class="k-sub" id="kpi-critica-lbl"></span></div>
+        <div class="kpi"><span class="k-lbl">Componente más crítico</span><span class="k-val sm" id="kpi-critica">—</span><span class="k-sub" id="kpi-critica-lbl"></span></div>
         <div class="chip-suf" id="chip-suf" hidden></div>
       </aside>
     </div>
@@ -126,17 +142,17 @@
   <section class="panel" id="panel-indice" role="tabpanel" aria-labelledby="tab-indice" tabindex="0" hidden>
     <div class="card nota-fija">
       <p>El IEIE se expresa en una escala de 0 a 100. Los valores más altos representan mejores
-      condiciones relativas de infraestructura educativa, de acuerdo con las dimensiones y reglas
+      condiciones relativas de infraestructura educativa, de acuerdo con las componentes y reglas
       metodológicas definidas para el índice. Su interpretación debe considerar la cobertura y
       suficiencia de la muestra en cada territorio.</p>
     </div>
 
     <div class="card">
       <div class="an-head">
-        <h2>Perfil por dimensión <span class="scope-tag" id="an-scope">Nacional</span></h2>
+        <h2>Perfil por componente <span class="scope-tag" id="an-scope">Nacional</span></h2>
         <div class="an-legend" id="dumbbell-legend"></div>
       </div>
-      <p class="muted mini">Comparación por dimensión: territorio seleccionado, promedio nacional,
+      <p class="muted mini">Comparación por componente: territorio seleccionado, promedio nacional,
       y resultado rural y urbano. El código 999 (No calculable) se excluye.</p>
       <div id="chart-dumbbell" class="chart chart-xtall"></div>
     </div>
@@ -144,7 +160,7 @@
     <div class="grid-2">
       <div class="card">
         <h2>Brechas frente al promedio nacional</h2>
-        <p class="muted mini">Diferencia en puntos por dimensión (territorio − nacional).</p>
+        <p class="muted mini">Diferencia en puntos por componente (territorio − nacional).</p>
         <div id="chart-brechas" class="chart chart-tall"></div>
       </div>
       <div class="card">
@@ -156,10 +172,13 @@
         <div class="an-kpis" id="an-kpis"></div>
       </div>
     </div>
+  </section>
 
+  <!-- ============ GLOSARIO (pestaña propia) ============ -->
+  <section class="panel" id="panel-glosario" role="tabpanel" aria-labelledby="tab-glosario" tabindex="0" hidden>
     <div class="card">
-      <h2>Glosario de dimensiones</h2>
-      <p class="muted mini">Definiciones oficiales del índice. Haz clic en cada dimensión para desplegar.</p>
+      <h2>Glosario de componentes del IEIE</h2>
+      <p class="muted mini">Definiciones oficiales del índice. Haz clic en cada componente para desplegar su información.</p>
       <div class="glosario" id="glosario"></div>
       <p class="fuente" id="glosario-fuente"></p>
     </div>
@@ -211,9 +230,9 @@
       <div class="an-head">
         <h2>Análisis por variable de la encuesta</h2>
         <div class="var-controls">
-          <label for="dim-select" class="sr-only">Dimensión</label>
-          <select id="dim-select" aria-label="Filtrar variables por dimensión">
-            <option value="">Todas las dimensiones</option>
+          <label for="dim-select" class="sr-only">Componente</label>
+          <select id="dim-select" aria-label="Filtrar variables por componente">
+            <option value="">Todas las componentes</option>
           </select>
           <label for="var-select" class="sr-only">Variable</label>
           <select id="var-select" aria-label="Seleccionar variable"></select>
@@ -266,9 +285,65 @@
           <p class="scope-sub" id="m2-sub">Vista nacional</p>
           <div class="m2-kpis" id="m2-kpis"></div>
           <div class="chip-suf" id="m2-suf" hidden></div>
+          <div id="m2-var-desc" class="m2-desc"></div>
           <p class="m2-note" id="m2-note"></p>
         </aside>
       </div>
+    </div>
+  </section>
+
+  <!-- ============ EXPLORADOR DE SEDES ============ -->
+  <section class="panel" id="panel-explorador" role="tabpanel" aria-labelledby="tab-explorador" tabindex="0" hidden>
+    <div class="card exp-intro">
+      <h2>Explorador de sedes</h2>
+      <p class="muted mini">Consulta el IEIE y los componentes por sede educativa. Solo se muestran variables
+      públicas institucionales; no se incluyen datos personales ni coordenadas exactas (la localización es
+      municipal). El IEIE es un índice de autorreporte y no reemplaza una inspección técnica.</p>
+    </div>
+    <div class="card exp-filters">
+      <div class="exp-f">
+        <label for="exp-dep">Departamento</label>
+        <select id="exp-dep"><option value="">Selecciona un departamento…</option></select>
+      </div>
+      <div class="exp-f">
+        <label for="exp-mun">Municipio</label>
+        <select id="exp-mun" disabled><option value="">Todos</option></select>
+      </div>
+      <div class="exp-f">
+        <label for="exp-zona">Zona</label>
+        <select id="exp-zona"><option value="">Todas</option><option value="Urbano">Urbana</option><option value="Rural">Rural</option></select>
+      </div>
+      <div class="exp-f exp-f-grow">
+        <label for="exp-buscar">Buscar por código DANE o nombre de sede</label>
+        <input type="search" id="exp-buscar" placeholder="Ej. 105001000078 o \u2018Escuela La Cima\u2019" autocomplete="off" disabled>
+      </div>
+    </div>
+    <div class="exp-layout">
+      <div class="card exp-table-wrap">
+        <div class="exp-table-head">
+          <span id="exp-count" class="muted">Selecciona un departamento para cargar sus sedes.</span>
+        </div>
+        <div class="exp-table-scroll">
+          <table class="exp-table" id="exp-table">
+            <thead><tr>
+              <th data-sort="dane">Código DANE</th>
+              <th data-sort="sede">Sede</th>
+              <th data-sort="mun">Municipio</th>
+              <th data-sort="zona">Zona</th>
+              <th data-sort="ieie" class="num">IEIE</th>
+              <th data-sort="cat">Categoría</th>
+            </tr></thead>
+            <tbody id="exp-tbody"></tbody>
+          </table>
+        </div>
+        <div class="exp-pager" id="exp-pager"></div>
+      </div>
+      <aside class="card exp-ficha" id="exp-ficha" aria-live="polite">
+        <p class="col-title">Ficha de la sede</p>
+        <p class="scope-name" id="exp-ficha-nombre">Selecciona una sede</p>
+        <p class="scope-sub" id="exp-ficha-sub">en la tabla de la izquierda</p>
+        <div id="exp-ficha-body"></div>
+      </aside>
     </div>
   </section>
 

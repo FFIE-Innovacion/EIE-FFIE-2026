@@ -24,13 +24,13 @@
 
   function boot(){
     var files=["resumen_nacional","resumen_departamental","resumen_municipal","perfil_dimensiones",
-      "resultados_rural_urbano","suficiencia_muestral","glosario_dimensiones","variables_tematicas","variables_detalle","config_mapas"];
+      "resultados_rural_urbano","suficiencia_muestral","glosario_dimensiones","variables_tematicas","variables_detalle","config_mapas","variables_numericas","metadata_variables"];
     Promise.all(files.map(function(f){return fetch("data/"+f+".json").then(function(r){
       if(!r.ok)throw new Error(f+" ("+r.status+")"); return r.json();});})
       .concat([fetch("geo/departamentos.geojson").then(function(r){return r.json();})]))
     .then(function(res){
       D.nac=res[0]; D.deps=res[1]; D.munis=res[2]; D.perfil=res[3];
-      D.ru=res[4]; D.suf=res[5]; D.glos=res[6]; D.vtem=res[7]; D.vdet=res[8]; D.cfg=res[9]; geo=res[10];
+      D.ru=res[4]; D.suf=res[5]; D.glos=res[6]; D.vtem=res[7]; D.vdet=res[8]; D.cfg=res[9]; D.vnum=res[10]; D.metaVars=res[11]; geo=res[12];
       D.muniByCod={}; D.munis.forEach(function(m){ D.muniByCod[m.mpio_cod]=m; });
       D.perfil.dimensiones.forEach(function(d){ dimLbl[d.codigo]=d.etiqueta; });
       D.depByCod={}; D.deps.forEach(function(d){ D.depByCod[d.cod]=d; });
@@ -56,7 +56,14 @@
     $$(".tab").forEach(function(t){ t.addEventListener("click",function(){ activar(t.dataset.tab); }); });
     $("#btn-toggle-radar").addEventListener("click",toggleRadar);
 
-    construirGlosario(); construirMetodologia(); construirFichaSelectores();
+    construirGlosario(); construirMetodologia(); construirFichaSelectores(); construirExplorador();
+    // Botón Geovisor: destino centralizado (si en el futuro es una URL ArcGIS, se cambia aquí o en config_mapas.json)
+    var GEOVISOR_TARGET = (D.cfg && D.cfg.geovisor_target) ? D.cfg.geovisor_target : "mapas";
+    $("#btn-geovisor").addEventListener("click",function(){
+      if(/^https?:\/\//.test(GEOVISOR_TARGET)) window.open(GEOVISOR_TARGET,"_blank","noopener");
+      else activar(GEOVISOR_TARGET);
+    });
+    var bm=$("#btn-ir-metodologia"); if(bm)bm.addEventListener("click",function(){ activar("metodologia"); });
     var corte=D.nac.corte||""; $("#corte-nota").textContent = corte?("Corte de información: "+corte):"Fuente: encuesta FFIE 2026 (base consolidada).";
     render();
     initMapa();
@@ -82,7 +89,7 @@
   function activar(tab){
     $$(".tab").forEach(function(t){ var on=t.dataset.tab===tab; t.classList.toggle("is-active",on); t.setAttribute("aria-selected",on?"true":"false"); });
     $$(".panel").forEach(function(p){ var on=p.id==="panel-"+tab; p.classList.toggle("is-active",on); p.hidden=!on; });
-    $("#grp-cobertura").hidden = (tab!=="ficha");
+    $("#grp-cobertura").hidden = true;
     setTimeout(function(){ Object.keys(charts).forEach(function(k){charts[k]&&charts[k].resize();}); radarChart&&radarChart.resize(); if(map&&tab==="resumen")map.invalidateSize(); if(map2&&tab==="mapas")map2.invalidateSize(); },30);
   }
 
@@ -266,16 +273,16 @@
       box.innerHTML=
         '<div class="an-kpi"><div class="l">IEIE territorio</div><div class="v">'+fmt(c.ieie,2)+'</div></div>'+
         '<div class="an-kpi"><div class="l">IEIE nacional</div><div class="v">'+fmt(D.nac.ieie_nacional,2)+'</div></div>'+
-        '<div class="an-kpi"><div class="l">Dim. más crítica</div><div class="v crit">'+dimName(c.dim_critica)+'</div></div>'+
-        '<div class="an-kpi"><div class="l">Dim. más fuerte</div><div class="v strong">'+dimName(c.dim_fuerte)+'</div></div>';
+        '<div class="an-kpi"><div class="l">Comp. más crítico</div><div class="v crit">'+dimName(c.dim_critica)+'</div></div>'+
+        '<div class="an-kpi"><div class="l">Comp. más fuerte</div><div class="v strong">'+dimName(c.dim_fuerte)+'</div></div>';
     } else {
       var arr=DIMS.map(function(d){return [d,num(nacD[d])];}).filter(function(x){return x[1]!==null;});
       var mn=arr.slice().sort(function(a,b){return a[1]-b[1];})[0], mx=arr.slice().sort(function(a,b){return b[1]-a[1];})[0];
       box.innerHTML=
         '<div class="an-kpi"><div class="l">IEIE nacional</div><div class="v">'+fmt(D.nac.ieie_nacional,2)+'</div></div>'+
         '<div class="an-kpi"><div class="l">Sedes válidas</div><div class="v">'+fmtInt(D.nac.muestra_valida)+'</div></div>'+
-        '<div class="an-kpi"><div class="l">Dim. más crítica</div><div class="v crit">'+dimName(mn[0])+'</div></div>'+
-        '<div class="an-kpi"><div class="l">Dim. más fuerte</div><div class="v strong">'+dimName(mx[0])+'</div></div>';
+        '<div class="an-kpi"><div class="l">Comp. más crítico</div><div class="v crit">'+dimName(mn[0])+'</div></div>'+
+        '<div class="an-kpi"><div class="l">Comp. más fuerte</div><div class="v strong">'+dimName(mx[0])+'</div></div>';
     }
     if(radarChart && !$("#chart-radar").hidden) pintarRadar();
   }
@@ -296,15 +303,24 @@
       series:[{type:"radar",data:data}]},true);
   }
 
-  /* ---------- Glosario ---------- */
+  /* ---------- Glosario (pestaña propia, LOOP R1) ---------- */
   function construirGlosario(){
     var g=D.glos, cont=$("#glosario");
+    var promNac=D.nac.dim_prom||{};
     cont.innerHTML=g.dimensiones.map(function(d,i){
+      var pv=num(promNac[d.cod]);
+      var rel = pv===null ? "Aporta al IEIE como uno de los nueve componentes." :
+        ("Promedio nacional de este componente: <b>"+fmt(pv,2)+"</b> / 100. Es uno de los nueve componentes que promedian el IEIE.");
       return '<div class="gl-item" data-i="'+i+'">'+
         '<button class="gl-head" aria-expanded="false"><span class="gl-code">'+d.cod+'</span>'+d.nombre+'<span class="gl-arrow" aria-hidden="true">▾</span></button>'+
-        '<div class="gl-body"><p><span class="lbl">Definición:</span> '+d.def+'</p>'+
-        '<p><span class="lbl">Cómo se calcula:</span> '+d.calculo+'</p>'+
-        '<p><span class="lbl">Orientación del puntaje:</span> escala 0–100; un valor más alto indica mejores condiciones.</p></div></div>';
+        '<div class="gl-body">'+
+          '<p><span class="lbl">Qué mide:</span> '+d.def+'</p>'+
+          '<p><span class="lbl">Variables que lo integran / cómo se calcula:</span> '+d.calculo+'</p>'+
+          '<p><span class="lbl">Orientación del puntaje:</span> escala 0–100; un valor más alto indica mejores condiciones relativas declaradas.</p>'+
+          '<p><span class="lbl">Interpretación:</span> léase junto con la cobertura y la suficiencia muestral del territorio; valores de autorreporte, no verificados en campo.</p>'+
+          '<p><span class="lbl">Limitaciones:</span> proviene de autorreporte institucional; el código 999 marca casos no calculables que se excluyen del promedio.</p>'+
+          '<p><span class="lbl">Relación con el IEIE:</span> '+rel+'</p>'+
+        '</div></div>';
     }).join("");
     $$(".gl-head",cont).forEach(function(btn){
       btn.addEventListener("click",function(){
@@ -347,9 +363,9 @@
       "<b>Cobertura territorial:</b> "+n.cobertura_territorial+". Bogotá D.C. es Distrito Capital, no un departamento adicional."]);
     // 7 construcción previa · 8 escala · 9 dimensiones · 10 interpretación
     $("#met-indice").innerHTML=li([
-      "<b>Construcción previa:</b> el IEIE llega ya calculado en la base oficial (promedio ponderado de nueve dimensiones con renormalización de pesos cuando hay dimensiones no calculables). <b>Este tablero no lo recalcula.</b>",
+      "<b>Construcción previa:</b> el IEIE llega ya calculado en la base oficial (promedio ponderado de nueve componentes con renormalización de pesos cuando hay componentes no calculables). <b>Este tablero no lo recalcula.</b>",
       "<b>Escala:</b> 0 a 100; valores más altos indican mejores condiciones relativas de infraestructura.",
-      "<b>Dimensiones:</b> nueve (D1–D9): servicios públicos, antigüedad y estado, accesibilidad y entorno, ambientes y capacidad, ambientes inhabilitados, condiciones físicas, confort, dotación y mobiliario, y afectación académica (ver glosario en la pestaña Análisis).",
+      "<b>Componentes:</b> nueve (D1–D9): servicios públicos, antigüedad y estado, accesibilidad y entorno, ambientes y capacidad, ambientes inhabilitados, condiciones físicas, confort, dotación y mobiliario, y afectación académica (ver la pestaña Glosario).",
       "<b>Interpretación:</b> el índice es relativo y autorreportado; debe leerse junto con la cobertura y la suficiencia muestral del territorio."]);
     // 11 agregaciones · 12 niveles · 13 rural-urbano
     $("#met-agreg").innerHTML=li([
@@ -379,7 +395,7 @@
        ["Distribución por categoría","dist_categoria (conteos oficiales de categoria_ieie)"],
        ["Comparación rural-urbana","resultados_rural_urbano.json / campos ieie_urbano · ieie_rural"],
        ["Dumbbell y brechas por dimensión","dim_prom (promedios D1–D9 sin 999)"],
-       ["Glosario de dimensiones","glosario_dimensiones.json (Informe Metodológico oficial)"],
+       ["Glosario de componentes","glosario_dimensiones.json (Informe Metodológico oficial)"],
        ["Ficha territorial y variables","variables_detalle.json (distribuciones con n válidas y faltantes)"],
        ["Mapas (todas las capas)","geo/*.geojson (MGN 2018) + JSON de agregados; reglas en config_mapas.json"]]
       .map(function(r){return '<div class="trow"><div>'+r[0]+'</div><div>'+r[1]+'</div></div>';}).join("");
@@ -388,10 +404,7 @@
 
   /* ---------- FICHA TERRITORIAL Y TEMÁTICA ---------- */
   function construirFichaSelectores(){
-    // tipo de sede (cobertura educativa) — desde variables_detalle nacional
-    var cob=$("#cob-select"); var v=D.vdet.nacional.cobertura_edu;
-    if(v){ Object.keys(v.categorias).sort().forEach(function(k){ var o=document.createElement("option"); o.value=k; o.textContent=k; cob.appendChild(o); }); }
-    $("#cob-select").addEventListener("change",function(){ state.cob=this.value; });
+    // (filtro "Tipo de sede" retirado del interfaz público en LOOP R1; la variable sigue en el modelo)
     // dimensión
     var dsel=$("#dim-select");
     [["D1","Servicios (D1)"],["D2","Estado (D2)"],["D3","Acceso (D3)"],["D7","Confort (D7)"],
@@ -485,7 +498,7 @@
     $("#ficha-narrativa").innerHTML="En <b>"+s.nombre+"</b>"+(s.sub?(" ("+s.sub+")"):"")+", el IEIE promedio es <b>"+fmt(ieie,2)+"</b> ("+catOf(ieie)+"), "+
       rel+" promedio nacional ("+fmt(nac.ieie_nacional,2)+") por <b>"+fmt(Math.abs(brecha),1)+"</b> puntos. "+
       "La cobertura de la encuesta fue <b>"+pct(o.cobertura_pct)+"</b> ("+fmtInt(o.muestra_valida)+"/"+fmtInt(o.marco_sedes)+" sedes). "+ur+
-      "La dimensión más crítica es <b>"+dimName(o.dim_critica)+"</b> y la más fuerte <b>"+dimName(o.dim_fuerte)+"</b>. "+prec;
+      "La componente más crítico es <b>"+dimName(o.dim_critica)+"</b> y la más fuerte <b>"+dimName(o.dim_fuerte)+"</b>. "+prec;
   }
 
   function pintarAlertas(s){
@@ -626,7 +639,12 @@
     D.cfg.capas_mapa.forEach(function(c){ var o=document.createElement("option"); o.value=c.id; o.textContent=c.titulo; capaSel.appendChild(o); });
     capaSel.value="ieie";
     var vsel=$("#capa-var-select");
-    D.vdet.meta.variables.forEach(function(v){ var o=document.createElement("option"); o.value=v.clave; o.textContent=v.etiqueta; vsel.appendChild(o); });
+    var og1=document.createElement("optgroup"); og1.label="Categóricas (encuesta)";
+    D.vdet.meta.variables.forEach(function(v){ var o=document.createElement("option"); o.value=v.clave; o.textContent=v.etiqueta; og1.appendChild(o); });
+    vsel.appendChild(og1);
+    var og2=document.createElement("optgroup"); og2.label="Numéricas (encuesta)";
+    D.vnum.meta.variables.forEach(function(v){ var o=document.createElement("option"); o.value="num:"+v.clave; o.textContent=v.etiqueta; og2.appendChild(o); });
+    vsel.appendChild(og2);
     // datalist búsqueda
     $("#map-buscar-list").innerHTML=D.deps.map(function(d){return '<option value="'+d.nombre+'">';}).join("");
 
@@ -661,7 +679,14 @@
     if(capa==="dim_critica"){ return CAT_DIM_COLOR[d.dim_critica]||"#ccc"; }
     if(capa==="perfil_ru"){ var u=num(d.ieie_urbano),r=num(d.ieie_rural); if(u===null||r===null)return "#dcd3e4"; var br=u-r; return br>=15?"#8c510a":br>=8?"#d8b365":br>=3?"#f6e8c3":br>=-3?"#c7eae5":"#5ab4ac"; }
     if(capa==="prioridad"){ var p=d.prioridad_exploratoria; var m={alta:"#b5341f",media:"#e0a253",baja:"#2f9e8f",no_evaluable:"#9aa0a6",sin_info:"#dcd3e4"}; return m[p]||"#dcd3e4"; }
-    if(capa==="tematica"){ var val=temValue(d); return val===null?"#dcd3e4":(val>=75?"#7a0177":val>=50?"#c51b8a":val>=25?"#f768a1":val>=10?"#fbb4b9":"#feebe2"); }
+    if(capa==="tematica"){
+      if(esVarNum()){
+        var qv=numQuintiles(), pv=numDeptoStat(d.cod);
+        if(qv===null||pv===null)return "#dcd3e4";
+        return pv>=qv[3]?"#7a0177":pv>=qv[2]?"#c51b8a":pv>=qv[1]?"#f768a1":pv>=qv[0]?"#fbb4b9":"#feebe2";
+      }
+      var val=temValue(d); return val===null?"#dcd3e4":(val>=75?"#7a0177":val>=50?"#c51b8a":val>=25?"#f768a1":val>=10?"#fbb4b9":"#feebe2");
+    }
     return "#dcd3e4";
   }
   function temValue(d){ // % de la variable temática seleccionada (usa módulos precomputados si existe)
@@ -671,6 +696,21 @@
       camaras:["acceso","sin_camaras"],ventilacion:["confort","sin_ventilacion"],ruido:["confort","ruido"],
       mobiliario:["mobiliario","insuficiente"],suspension:["academica","suspension"]};
     var p=map[m2State.vari]; if(!p||!d.modulos[p[0]])return null; var v=d.modulos[p[0]][p[1]]; return v===undefined?null:num(v);
+  }
+  function esVarNum(){ return m2State.vari && m2State.vari.indexOf("num:")===0; }
+  function varNumKey(){ return esVarNum()?m2State.vari.slice(4):null; }
+  function numDeptoStat(cod){ // promedio departamental de la variable numérica activa
+    var k=varNumKey(); if(!k)return null;
+    var dd=D.vnum.departamental[cod]; if(!dd||!dd[k]||!dd[k].n)return null;
+    return dd[k].prom;
+  }
+  function numQuintiles(){ // cortes de quintil sobre los 33 promedios departamentales
+    var k=varNumKey(); if(!k)return null;
+    var a=[]; Object.keys(D.vnum.departamental).forEach(function(c){ var s=D.vnum.departamental[c][k]; if(s&&s.n)a.push(s.prom); });
+    if(a.length<5)return null;
+    a.sort(function(x,y){return x-y;});
+    function q(p){ var i=(a.length-1)*p, lo=Math.floor(i); return a[lo]+(a[Math.min(lo+1,a.length-1)]-a[lo])*(i-lo); }
+    return [q(.2),q(.4),q(.6),q(.8)];
   }
 
   function styleM2(feat){
@@ -682,7 +722,7 @@
   }
   function m2Popup(d,nombre,nivel){
     if(!d)return '<div class="popup-t">'+nombre+'</div><div class="popup-r">Sin información en la muestra.</div>';
-    var capaLbl={ieie:"IEIE",cobertura:"Cobertura",suficiencia:"Suficiencia",dim_critica:"Dim. crítica",perfil_ru:"Brecha U-R",prioridad:"Prioridad (expl.)",tematica:"Variable"};
+    var capaLbl={ieie:"IEIE",cobertura:"Cobertura",suficiencia:"Suficiencia",dim_critica:"Comp. crítico",perfil_ru:"Brecha U-R",prioridad:"Prioridad (expl.)",tematica:"Variable"};
     var h='<div class="popup-t">'+nombre+'</div>'+
       '<div class="popup-r">IEIE: <b>'+fmt(d.ieie,2)+'</b>'+(d.categoria_modal?" · "+d.categoria_modal:"")+'</div>'+
       '<div class="popup-r">Cobertura: '+pct(d.cobertura_pct)+' · n='+fmtInt(d.muestra_valida)+' de '+fmtInt(d.marco_sedes)+'</div>';
@@ -711,6 +751,9 @@
     m2Layer=L.geoJSON({type:"FeatureCollection",features:feats},{style:styleM2,onEachFeature:onEachM2}).addTo(map2);
     if(m2Inset)m2Inset.setStyle(styleM2);
     pintarLeyenda2(); actualizarFuente2();
+    // refrescar el bloque descriptivo del panel con el ámbito actual
+    var selD = state.dep ? D.depByCod[state.dep] : null;
+    pintarDescriptivoM2(selD);
   }
   function actualizarFuente2(){
     var capa=D.cfg.capas_mapa.filter(function(c){return c.id===m2State.capa;})[0];
@@ -729,7 +772,14 @@
     else if(capa==="dim_critica")h=DIMS.map(function(d){return row(CAT_DIM_COLOR[d],d);}).join("");
     else if(capa==="perfil_ru")h=row("#8c510a","Urbano ≫ rural")+row("#d8b365","+8 a +15")+row("#f6e8c3","±")+row("#c7eae5","Rural ≥ urbano");
     else if(capa==="prioridad")h=row("#b5341f","Necesidad alta")+row("#e0a253","Media")+row("#2f9e8f","Baja")+row("#9aa0a6","No evaluable")+row("#dcd3e4","Sin info");
-    else if(capa==="tematica")h=row("#7a0177","≥75%")+row("#c51b8a","50–74%")+row("#f768a1","25–49%")+row("#fbb4b9","10–24%")+row("#feebe2","<10%");
+    else if(capa==="tematica"){
+      if(esVarNum()){
+        var qv=numQuintiles();
+        if(qv){ h=row("#7a0177","≥ "+qv[3].toFixed(1))+row("#c51b8a",qv[2].toFixed(1)+"–"+qv[3].toFixed(1))+row("#f768a1",qv[1].toFixed(1)+"–"+qv[2].toFixed(1))+row("#fbb4b9",qv[0].toFixed(1)+"–"+qv[1].toFixed(1))+row("#feebe2","< "+qv[0].toFixed(1))+'<span class="lk" style="color:#7c7488">(promedio por depto, quintiles)</span>'; }
+        else h=row("#dcd3e4","Sin datos suficientes");
+      }
+      else h=row("#7a0177","≥75%")+row("#c51b8a","50–74%")+row("#f768a1","25–49%")+row("#fbb4b9","10–24%")+row("#feebe2","<10%");
+    }
     h+=row("#dcd3e4","Sin dato")+'<span class="lk lk-hatch"><i></i>Muestra insuficiente</span>';
     L2.innerHTML=h;
   }
@@ -737,17 +787,74 @@
     if(!d){ $("#m2-name").textContent="Colombia"; $("#m2-sub").textContent="Vista nacional";
       var n=D.nac;
       $("#m2-kpis").innerHTML=kpiRow("IEIE nacional",fmt(n.ieie_nacional,2))+kpiRow("Muestra",fmtInt(n.muestra_valida))+kpiRow("Cobertura",pct(n.cobertura_pct));
-      $("#m2-suf").hidden=true; $("#m2-note").textContent="Haz clic en un territorio para ver su ficha resumida."; return; }
+      $("#m2-suf").hidden=true; $("#m2-note").textContent="Haz clic en un territorio para ver su ficha resumida.";
+      pintarDescriptivoM2(null); return; }
     $("#m2-name").textContent=isMuni?(d.nombre+" ("+d.departamento+")"):d.nombre;
     $("#m2-sub").textContent=isMuni?"Nivel municipal":(d.es_distrito_capital?"Distrito Capital":"Departamento");
     $("#m2-kpis").innerHTML=kpiRow("IEIE",fmt(d.ieie,2)+(catOf(d.ieie)?" · "+catOf(d.ieie):""))+
       kpiRow("Muestra / marco",fmtInt(d.muestra_valida)+" / "+fmtInt(d.marco_sedes))+
       kpiRow("Cobertura",pct(d.cobertura_pct))+
-      (d.dim_critica?kpiRow("Dim. crítica",dimName(d.dim_critica)):"");
+      (d.dim_critica?kpiRow("Comp. crítico",dimName(d.dim_critica)):"");
     var suf=$("#m2-suf");
     if(d.suficiencia==="insuficiente"){ suf.hidden=false; suf.className="chip-suf warn"; suf.textContent="⚠ No evaluable — requiere fortalecimiento de la muestra"; }
     else { suf.hidden=false; suf.className="chip-suf ok"; suf.textContent="✔ Suficiencia adecuada"; }
     $("#m2-note").textContent="Fuente: encuesta FFIE 2026. Cifras del ámbito seleccionado.";
+    pintarDescriptivoM2(isMuni?null:d);
+  }
+
+  /* Bloque descriptivo de la variable temática en el panel del mapa.
+     Categóricas: barras territorio vs nacional. Numéricas: estadísticos + histograma. */
+  function pintarDescriptivoM2(d){
+    var box=$("#m2-var-desc");
+    if(m2State.capa!=="tematica"){ box.innerHTML=""; return; }
+    var cod=d?d.cod:null;
+    if(esVarNum()){
+      var k=varNumKey();
+      var meta=D.vnum.meta.variables.filter(function(v){return v.clave===k;})[0]||{};
+      var s=(cod&&D.vnum.departamental[cod]&&D.vnum.departamental[cod][k]&&D.vnum.departamental[cod][k].n)?D.vnum.departamental[cod][k]:D.vnum.nacional[k];
+      var nivel=(cod&&D.vnum.departamental[cod]&&D.vnum.departamental[cod][k]&&D.vnum.departamental[cod][k].n)?(d?d.nombre:"Nacional"):"Nacional";
+      if(!s||!s.n){ box.innerHTML='<p class="m2d-empty">Sin datos de la variable en este ámbito.</p>'; return; }
+      var nacS=D.vnum.nacional[k];
+      var permiteSuma=(function(){ var mv=(D.metaVars&&D.metaVars.variables)||[]; var r=mv.filter(function(x){return x.variable===k;})[0]; return r?r.permite_suma:true; })();
+      var h='<p class="m2d-title">'+(meta.etiqueta||k)+'</p>'+
+        '<p class="m2d-sub">Nivel: '+nivel+' · unidad: '+(meta.unidad||"")+' · variable cuantitativa</p>'+
+        '<div class="m2d-stats">'+
+          (permiteSuma&&s.suma!==undefined?('<span>Suma <b>'+fmtInt(s.suma)+'</b></span>'):'')+
+          '<span>Prom. <b>'+fmt(s.prom,1)+'</b></span><span>Mediana <b>'+fmt(s.mediana,1)+'</b></span>'+
+          '<span>Q1–Q3 <b>'+fmt(s.q1,1)+'–'+fmt(s.q3,1)+'</b></span>'+
+          '<span>Mín–Máx <b>'+fmt(s.min,0)+'–'+fmt(s.max,0)+'</b></span>'+
+        '</div>';
+      // mini histograma en divs
+      var mx=Math.max.apply(null,s.hist.bins)||1;
+      h+='<div class="m2d-hist">'+s.hist.bins.map(function(b){
+        return '<i style="height:'+Math.max(3,Math.round(42*b/mx))+'px" title="'+b+' sedes"></i>';
+      }).join("")+'</div>';
+      h+='<p class="m2d-axis">0 — '+fmt(s.hist.lim_sup,0)+' '+(meta.unidad||"")+(s.hist.sobre_lim?(' · +'+s.hist.sobre_lim+' por encima'):'')+'</p>';
+      if(nivel!=="Nacional"&&nacS&&nacS.n)h+='<p class="m2d-ref">Referente nacional: prom. '+fmt(nacS.prom,1)+' · mediana '+fmt(nacS.mediana,1)+'</p>';
+      h+='<p class="m2d-meta">n válidas: '+fmtInt(s.n)+' · faltantes: '+pct(s.pct_faltantes)+'</p>';
+      box.innerHTML=h;
+    } else {
+      var vk=m2State.vari;
+      var meta2=D.vdet.meta.variables.filter(function(v){return v.clave===vk;})[0]||{};
+      var scope=(cod&&D.vdet.departamental[cod])?D.vdet.departamental[cod]:D.vdet.nacional;
+      var nivel2=(cod&&D.vdet.departamental[cod])?(d?d.nombre:"Nacional"):"Nacional";
+      var vd=scope[vk], vn=D.vdet.nacional[vk];
+      if(!vd||!vd.n_validas){ box.innerHTML='<p class="m2d-empty">Sin datos de la variable en este ámbito.</p>'; return; }
+      var tot=vd.n_validas||1, totN=(vn&&vn.n_validas)||1;
+      var cats=Object.keys(vd.categorias).map(function(c){return [c,vd.categorias[c]];}).sort(function(a,b){return b[1]-a[1];}).slice(0,5);
+      var h2='<p class="m2d-title">'+(meta2.etiqueta||vk)+'</p>'+
+        '<p class="m2d-sub">Nivel: '+nivel2+' · distribución vs. nacional</p>';
+      cats.forEach(function(cpair){
+        var p1=100*cpair[1]/tot;
+        var p2=vn&&vn.categorias[cpair[0]]!==undefined?100*vn.categorias[cpair[0]]/totN:null;
+        h2+='<div class="m2d-cat"><span class="l">'+cpair[0]+'</span>'+
+          '<span class="b1"><i style="width:'+Math.round(p1)+'%"></i></span><span class="v1">'+p1.toFixed(1)+'%</span>'+
+          (p2!==null&&nivel2!=="Nacional"?('<span class="b2"><i style="width:'+Math.round(p2)+'%"></i></span><span class="v2">nac. '+p2.toFixed(1)+'%</span>'):'')+
+        '</div>';
+      });
+      h2+='<p class="m2d-meta">n válidas: '+fmtInt(vd.n_validas)+' · faltantes: '+pct(vd.pct_faltantes)+'</p>';
+      box.innerHTML=h2;
+    }
   }
   function kpiRow(l,v){ return '<div class="kpi"><span class="k-lbl">'+l+'</span><span class="k-val">'+v+'</span></div>'; }
   function buscarTerr(nombre){
@@ -774,6 +881,96 @@
         layer.on("click",function(){ renderMap2Side(d); });
       }}).addTo(m2InsetMap);
     },120);
+  }
+
+  /* ---------- EXPLORADOR DE SEDES (LOOP R1) ---------- */
+  var expState={dep:"",mun:"",zona:"",q:"",sort:"ieie",dir:-1,page:0,per:40,rows:[],all:[],cache:{}};
+  function construirExplorador(){
+    var dsel=$("#exp-dep");
+    D.deps.slice().sort(function(a,b){return a.nombre.localeCompare(b.nombre,"es");})
+      .forEach(function(d){ var o=document.createElement("option"); o.value=d.cod; o.textContent=d.nombre+" ("+d.muestra_valida+")"; dsel.appendChild(o); });
+    dsel.addEventListener("change",function(){ expState.dep=this.value; expState.mun=""; expState.q=""; $("#exp-buscar").value=""; cargarSedesDep(this.value); });
+    $("#exp-mun").addEventListener("change",function(){ expState.mun=this.value; expState.page=0; filtrarExplorador(); });
+    $("#exp-zona").addEventListener("change",function(){ expState.zona=this.value; expState.page=0; filtrarExplorador(); });
+    var bq=$("#exp-buscar"); var t=null;
+    bq.addEventListener("input",function(){ clearTimeout(t); var v=this.value; t=setTimeout(function(){ expState.q=v.trim().toLowerCase(); expState.page=0; filtrarExplorador(); },200); });
+    $$("#exp-table thead th").forEach(function(th){ th.addEventListener("click",function(){
+      var k=th.getAttribute("data-sort"); if(!k)return;
+      if(expState.sort===k)expState.dir*=-1; else {expState.sort=k; expState.dir=(k==="ieie"?-1:1);}
+      expState.page=0; renderExplTabla();
+    }); });
+  }
+  function cargarSedesDep(cod){
+    if(!cod){ expState.all=[]; $("#exp-mun").disabled=true; $("#exp-buscar").disabled=true; $("#exp-count").textContent="Selecciona un departamento para cargar sus sedes."; $("#exp-tbody").innerHTML=""; $("#exp-pager").innerHTML=""; return; }
+    $("#exp-count").textContent="Cargando sedes…";
+    function done(arr){
+      expState.all=arr; expState.cache[cod]=arr;
+      var msel=$("#exp-mun"); msel.innerHTML='<option value="">Todos</option>';
+      var muns={}; arr.forEach(function(s){ muns[s.mun]=(muns[s.mun]||0)+1; });
+      Object.keys(muns).sort(function(a,b){return a.localeCompare(b,"es");}).forEach(function(m){ var o=document.createElement("option"); o.value=m; o.textContent=m+" ("+muns[m]+")"; msel.appendChild(o); });
+      msel.disabled=false; $("#exp-buscar").disabled=false;
+      expState.mun=""; expState.zona=""; expState.q=""; expState.page=0; $("#exp-zona").value=""; filtrarExplorador();
+    }
+    if(expState.cache[cod])done(expState.cache[cod]);
+    else fetch("data/sedes/"+cod+".json").then(function(r){return r.json();}).then(done)
+      .catch(function(){ $("#exp-count").textContent="No se pudo cargar el departamento."; });
+  }
+  function filtrarExplorador(){
+    var a=expState.all||[]; var q=expState.q, mun=expState.mun, zona=expState.zona;
+    expState.rows=a.filter(function(s){
+      if(mun&&s.mun!==mun)return false;
+      if(zona&&s.zona!==zona)return false;
+      if(q){ var hay=(s.dane||"").toLowerCase().indexOf(q)>=0 || (s.sede||"").toLowerCase().indexOf(q)>=0 || (s.ie||"").toLowerCase().indexOf(q)>=0 || (s.mun||"").toLowerCase().indexOf(q)>=0; if(!hay)return false; }
+      return true;
+    });
+    renderExplTabla();
+  }
+  function renderExplTabla(){
+    var k=expState.sort, dir=expState.dir;
+    expState.rows.sort(function(x,y){
+      var a=x[k],b=y[k];
+      if(k==="ieie"){ a=a===null?-1:a; b=b===null?-1:b; return (a-b)*dir; }
+      return String(a||"").localeCompare(String(b||""),"es")*dir;
+    });
+    var n=expState.rows.length, per=expState.per, pages=Math.max(1,Math.ceil(n/per));
+    if(expState.page>=pages)expState.page=0;
+    var slice=expState.rows.slice(expState.page*per,(expState.page+1)*per);
+    $("#exp-count").innerHTML="<b>"+fmtInt(n)+"</b> sede(s) · fuente: encuesta FFIE 2026";
+    $("#exp-tbody").innerHTML=slice.map(function(s,i){
+      var cat=s.cat||"—"; var col=CAT_COLOR[cat.split(" ")[0]]||"#ccc";
+      return '<tr data-i="'+(expState.page*per+i)+'"><td class="mono">'+(s.dane||"—")+'</td><td>'+(s.sede||"—")+'</td><td>'+(s.mun||"—")+'</td><td>'+(s.zona||"—")+'</td>'+
+        '<td class="num"><b>'+fmt(s.ieie,1)+'</b></td><td><span class="cat-dot" style="background:'+col+'"></span>'+cat+'</td></tr>';
+    }).join("");
+    $$("#exp-tbody tr").forEach(function(tr){ tr.addEventListener("click",function(){ fichaSede(expState.rows[+tr.getAttribute("data-i")]); $$("#exp-tbody tr").forEach(function(x){x.classList.remove("sel");}); tr.classList.add("sel"); }); });
+    var pg=$("#exp-pager");
+    if(pages<=1){ pg.innerHTML=""; }
+    else {
+      pg.innerHTML='<button class="btn-ghost sm" id="pg-prev" '+(expState.page===0?"disabled":"")+'>‹ Anterior</button>'+
+        '<span class="pg-info">Página '+(expState.page+1)+' de '+pages+'</span>'+
+        '<button class="btn-ghost sm" id="pg-next" '+(expState.page>=pages-1?"disabled":"")+'>Siguiente ›</button>';
+      var pv=$("#pg-prev"),nx=$("#pg-next");
+      if(pv)pv.addEventListener("click",function(){ if(expState.page>0){expState.page--;renderExplTabla();} });
+      if(nx)nx.addEventListener("click",function(){ if(expState.page<pages-1){expState.page++;renderExplTabla();} });
+    }
+  }
+  function fichaSede(s){
+    if(!s)return;
+    $("#exp-ficha-nombre").textContent=s.sede||"Sede";
+    $("#exp-ficha-sub").textContent=(s.ie?s.ie+" · ":"")+s.mun+", "+s.dep+" · zona "+(s.zona||"—");
+    var dimNames={D1:"Servicios básicos",D2:"Antigüedad y estado",D3:"Accesibilidad y entorno",D4:"Ambientes y capacidad",D5:"Ambientes inhabilitados",D6:"Condiciones físicas",D7:"Confort",D8:"Dotación y mobiliario",D9:"Afectación académica"};
+    var cat=s.cat||"—"; var col=CAT_COLOR[cat.split(" ")[0]]||"#ccc";
+    var h='<div class="exp-kpirow"><div class="kpi"><span class="k-lbl">IEIE</span><span class="k-val" style="color:'+col+'">'+fmt(s.ieie,1)+'</span><span class="k-sub">'+cat+'</span></div>'+
+      '<div class="kpi"><span class="k-lbl">Calidad del dato</span><span class="k-val sm">'+(s.cal||"—")+'</span><span class="k-sub">DANE '+(s.dane||"—")+'</span></div></div>';
+    h+='<p class="exp-comp-t">Componentes (D1–D9)</p><div class="exp-comps">';
+    (s.d||[]).forEach(function(v,i){
+      var cod="D"+(i+1); var val=v;
+      var w=val===null?0:Math.max(2,Math.round(val));
+      var c=val===null?"#dcd3e4":(val>=80?"#2f9e8f":val>=60?"#7cc0a8":val>=40?"#e0a253":"#d0594e");
+      h+='<div class="exp-comp"><span class="ec-l" title="'+dimNames[cod]+'">'+cod+'</span><span class="ec-bar"><i style="width:'+w+'%;background:'+c+'"></i></span><span class="ec-v">'+(val===null?"n/c":fmt(val,0))+'</span></div>';
+    });
+    h+='</div>';
+    h+='<p class="exp-warn">El IEIE es un índice de autorreporte (escala 0–100); no reemplaza una inspección técnica de ingeniería o arquitectura. Localización a nivel municipal (sin coordenadas exactas). Fuente: encuesta FFIE 2026.</p>';
+    $("#exp-ficha-body").innerHTML=h;
   }
 
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",boot); else boot();
