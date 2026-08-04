@@ -4,6 +4,27 @@ Formato basado en Keep a Changelog. Versionado por loops hasta el release v3.
 
 ---
 
+## [1.1.0] — Ajustes solicitados (2026-08)
+
+- **Added:** el botón **Geovisor** abre el visor oficial de ArcGIS
+  (`https://ffie.maps.arcgis.com/apps/instant/sidebar/index.html?appid=f7369f478dcf4750b09357d3747f9bb3`),
+  configurable en `data/config_mapas.json` → `geovisor_target`.
+- **Added:** logos institucionales en el encabezado — Encuesta (izquierda) y FFIE (derecha,
+  `assets/logo_ffie.png`).
+- **Added:** mosaico de las nueve componentes (D1–D9) en el **Glosario** como equipo
+  interdisciplinario y experto, con iconos en `assets/dimensiones/` (D8 y D9 pendientes de
+  entrega; el código los carga automáticamente al colocarlos como `D8.png` / `D9.png`).
+- **Changed:** **mapa Municipal** rehecho con los resultados de
+  `Paquete_Datos_Mapas_ArcGIS_FFIE_2026_1.xlsx` → hoja `M9_IEIE_municipal` (regenera
+  `data/resumen_municipal.json`; suficiencia rediseñada: 632 evaluables / 346 no evaluables).
+- **Fixed:** el filtro **Ámbito territorial** ahora está conectado con el mapa de "Mapas
+  interactivos": al elegir departamento o municipio, el mapa hace zoom, resalta el territorio y
+  actualiza el panel lateral (sincronización bidireccional con clic en el mapa).
+- **Removed:** bloque **Potencialidades** de la Ficha territorial y capa **Prioridad territorial
+  (exploratoria)** de los mapas interactivos.
+
+---
+
 ## [1.0.0] — v3 release
 
 ### LOOP 6 — Metodología, validación integral y paquete para GitHub
