@@ -1,4 +1,5 @@
 {
+ "geovisor_target": "https://ffie.maps.arcgis.com/apps/instant/sidebar/index.html?appid=f7369f478dcf4750b09357d3747f9bb3",
  "prioridad_exploratoria": {
   "titulo": "Prioridad territorial (exploratoria)",
   "aviso": "NO es una clasificación oficial. Es una regla exploratoria para orientar la lectura, construida con umbrales transparentes y editables en este archivo.",
@@ -87,14 +88,6 @@
    "nivel": [
     "departamental",
     "municipal"
-   ]
-  },
-  {
-   "id": "prioridad",
-   "titulo": "Prioridad territorial (exploratoria)",
-   "tipo": "prioridad",
-   "nivel": [
-    "departamental"
    ]
   },
   {
