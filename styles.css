@@ -97,6 +97,20 @@ main{padding:6px 0 50px}
 .an-kpi .v{font-size:17px;font-weight:800;margin-top:2px}
 .an-kpi .v.crit{color:var(--critico)} .an-kpi .v.strong{color:var(--adecuado)}
 
+/* glosario — equipo interdisciplinario (mosaico de componentes) */
+.gl-team{margin:4px 0 16px}
+.gl-team-cap{font-size:13px;color:var(--ink2);margin:0 0 12px;line-height:1.45}
+.gl-team-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.gl-team-item{margin:0;display:flex;align-items:center;gap:10px;background:linear-gradient(135deg,#0b0b18,#141433);border:1px solid #24244a;border-radius:12px;padding:9px 11px}
+.gl-team-ic{flex:0 0 auto;width:52px;height:52px;border-radius:10px;background:#05050c;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.gl-team-img{width:52px;height:52px;object-fit:contain;display:block}
+.gl-team-img.no-icon{display:none}
+.gl-team-ic:has(.no-icon){background:var(--purple)}
+.gl-team-item figcaption{display:flex;flex-direction:column;line-height:1.2;color:#fff}
+.gl-team-item figcaption b{font-size:12px;color:var(--magenta);letter-spacing:.03em}
+.gl-team-item figcaption span{font-size:11.5px;color:#e6e2f0;margin-top:2px}
+.gl-icon{width:30px;height:30px;object-fit:contain;border-radius:7px;background:#05050c;padding:2px;flex:0 0 auto}
+.gl-icon.no-icon{display:none}
 /* glosario acordeón */
 .glosario{display:flex;flex-direction:column;gap:6px;margin-top:6px}
 .gl-item{border:1px solid var(--line);border-radius:var(--r-sm);overflow:hidden}
@@ -227,6 +241,7 @@ ul#metod-notas{color:var(--ink2);font-size:13.5px;line-height:1.7;margin:0;paddi
 
 /* ===== LOOP R1: header institucional, geovisor, IEIE intro, glosario, explorador ===== */
 .logo-enc{height:58px;width:auto;max-width:230px;object-fit:contain;background:#fff;border-radius:10px;padding:5px 9px}
+.logo-ffie{height:62px;width:auto;max-width:190px;object-fit:contain;background:#fff;border-radius:10px;padding:5px 11px;flex:0 0 auto}
 .brand-subtitle{font-size:11.5px;color:#e2d3ef;margin:3px 0 0;max-width:560px;line-height:1.35}
 .topbar-right{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
 .btn-geovisor{display:inline-flex;align-items:center;gap:7px;background:var(--magenta);color:#fff;border:0;border-radius:var(--pill);
@@ -281,6 +296,7 @@ ul#metod-notas{color:var(--ink2);font-size:13.5px;line-height:1.7;margin:0;paddi
 @media(max-width:1080px){.exp-layout{grid-template-columns:1fr}.exp-ficha{position:static}}
 @media(max-width:860px){
   .logo-enc{height:46px;max-width:180px}
+  .logo-ffie{height:44px;max-width:150px}
   .brand-subtitle{font-size:10.5px}
   .topbar-right{flex-direction:row;align-items:center;width:100%;justify-content:space-between;margin-top:8px}
   .ieie-intro{flex-direction:column;align-items:flex-start;gap:12px}

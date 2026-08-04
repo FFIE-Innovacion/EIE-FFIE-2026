@@ -12,7 +12,7 @@
 
   var D={}, dimLbl={}, geo=null, map=null, geoLayer=null, insetMap=null, insetLayer=null;
   var charts={}, radarChart=null;
-  var map2=null, geoM=null, mgeo=null, m2Layer=null, m2Inset=null, m2InsetMap=null, m2State={capa:"ieie",nivel:"departamental",vari:"agua_continua"};
+  var map2=null, geoM=null, mgeo=null, m2Layer=null, m2Inset=null, m2InsetMap=null, m2State={capa:"ieie",nivel:"departamental",vari:"agua_continua"}, m2PendingZoom=false;
   var state={dep:"", mpio:"", zona:"total", cob:"", dim:"", vari:"", cat:""};
 
   function num(v){ if(v===null||v===undefined||v==="")return null; var n=+v; return (isNaN(n)||n===NC)?null:n; }
@@ -48,8 +48,8 @@
     var sel=$("#dep-select");
     D.deps.slice().sort(function(a,b){return a.nombre.localeCompare(b.nombre,"es");})
       .forEach(function(d){ var o=document.createElement("option"); o.value=d.cod; o.textContent=d.nombre; sel.appendChild(o); });
-    sel.addEventListener("change",function(){ state.dep=sel.value; state.mpio=""; poblarMunicipios(); render(); });
-    $("#mpio-select").addEventListener("change",function(){ state.mpio=this.value; render(); });
+    sel.addEventListener("change",function(){ state.dep=sel.value; state.mpio=""; poblarMunicipios(); render(); syncMap2FromFilter(); });
+    $("#mpio-select").addEventListener("change",function(){ state.mpio=this.value; render(); syncMap2FromFilter(); });
     $("#zona-select").addEventListener("change",function(){ state.zona=this.value; render(); });
     $("#btn-reset").addEventListener("click",resetAll);
     $("#btn-map-reset").addEventListener("click",function(){ resetAll(); if(map)map.setView([4.6,-73.2],5); });
@@ -304,15 +304,26 @@
   }
 
   /* ---------- Glosario (pestaña propia, LOOP R1) ---------- */
+  var DIM_ICON={D1:1,D2:1,D3:1,D4:1,D5:1,D6:1,D7:1,D8:1,D9:1};
+  function dimIcon(cod,cls){ return '<img class="'+(cls||"gl-icon")+'" src="assets/dimensiones/'+cod+'.png" alt="" loading="lazy" onerror="this.classList.add(\'no-icon\')">'; }
   function construirGlosario(){
     var g=D.glos, cont=$("#glosario");
     var promNac=D.nac.dim_prom||{};
-    cont.innerHTML=g.dimensiones.map(function(d,i){
+    // Equipo interdisciplinario: mosaico con los logos de las nueve componentes
+    var team='<div class="gl-team">'+
+      '<p class="gl-team-cap">Las nueve componentes del IEIE, valoradas por un equipo interdisciplinario y experto (estadística, diseño muestral, infraestructura educativa e indicadores compuestos):</p>'+
+      '<div class="gl-team-grid">'+
+      g.dimensiones.map(function(d){
+        return '<figure class="gl-team-item"><span class="gl-team-ic">'+dimIcon(d.cod,"gl-team-img")+'</span>'+
+          '<figcaption><b>'+d.cod+'</b><span>'+d.nombre+'</span></figcaption></figure>';
+      }).join("")+
+      '</div></div>';
+    var acc=g.dimensiones.map(function(d,i){
       var pv=num(promNac[d.cod]);
       var rel = pv===null ? "Aporta al IEIE como uno de los nueve componentes." :
         ("Promedio nacional de este componente: <b>"+fmt(pv,2)+"</b> / 100. Es uno de los nueve componentes que promedian el IEIE.");
       return '<div class="gl-item" data-i="'+i+'">'+
-        '<button class="gl-head" aria-expanded="false"><span class="gl-code">'+d.cod+'</span>'+d.nombre+'<span class="gl-arrow" aria-hidden="true">▾</span></button>'+
+        '<button class="gl-head" aria-expanded="false">'+dimIcon(d.cod,"gl-icon")+'<span class="gl-code">'+d.cod+'</span>'+d.nombre+'<span class="gl-arrow" aria-hidden="true">▾</span></button>'+
         '<div class="gl-body">'+
           '<p><span class="lbl">Qué mide:</span> '+d.def+'</p>'+
           '<p><span class="lbl">Variables que lo integran / cómo se calcula:</span> '+d.calculo+'</p>'+
@@ -322,6 +333,7 @@
           '<p><span class="lbl">Relación con el IEIE:</span> '+rel+'</p>'+
         '</div></div>';
     }).join("");
+    cont.innerHTML=team+acc;
     $$(".gl-head",cont).forEach(function(btn){
       btn.addEventListener("click",function(){
         var item=btn.parentNode, open=item.classList.toggle("open");
@@ -386,7 +398,6 @@
     $("#met-lim").innerHTML=li([
       "<b>Autorreporte:</b> la encuesta es diligenciada por la propia sede; puede haber errores de percepción, interpretación o registro no verificados en campo.",
       "La cobertura es parcial ("+pct(n.cobertura_pct)+" del marco); los resultados representan a las sedes encuestadas, no necesariamente a todo el universo.",
-      "La \u201cprioridad territorial\u201d del mapa es <b>exploratoria</b> (regla transparente en config_mapas.json), no una clasificación oficial.",
       "Un municipio (código 27493) tiene datos pero carece de geometría en el MGN cargado; se muestra en tablas pero no en el mapa municipal."]);
     // 19 fuente de cada gráfico
     $("#tabla-fuentes").innerHTML='<div class="trow head"><div>Componente</div><div>Fuente de datos</div></div>'+
@@ -520,7 +531,6 @@
       alerts.sort(function(a,b){return b[1]-a[1];}); forts.sort(function(a,b){return a[1]-b[1];});
     }
     $("#ficha-alertas").innerHTML = alerts.length?alerts.slice(0,6).map(function(a){return '<span class="chip alert">'+a[0]+" · "+pct(a[1])+"</span>";}).join(""):'<span class="chip neutral">Sin alertas críticas por umbral (≥50 %).</span>';
-    $("#ficha-fortalezas").innerHTML = forts.length?forts.slice(0,6).map(function(a){return '<span class="chip good">'+a[0]+" · "+pct(a[1])+"</span>";}).join(""):'<span class="chip neutral">Selecciona un departamento para ver potencialidades.</span>';
     if(s.nivel==="nacional"){ $("#ficha-alertas").innerHTML='<span class="chip neutral">Selecciona un departamento o municipio para ver alertas territoriales.</span>'; }
   }
 
@@ -737,7 +747,7 @@
     var nombre=nivel==="municipal"?(feat.properties.nombre+" ("+cod+")"):(d?d.nombre:feat.properties.nombre);
     layer.bindTooltip(nombre+(d?": IEIE "+fmt(d.ieie,1)+" · n="+fmtInt(d.muestra_valida):" · sin dato"),{sticky:true});
     layer.bindPopup(m2Popup(d,nombre,nivel));
-    layer.on("click",function(){ if(nivel==="departamental"&&d){ state.dep=d.cod; renderMap2Side(d); } else if(d){ renderMap2Side(d,true); } });
+    layer.on("click",function(){ if(nivel==="departamental"&&d){ state.dep=d.cod; state.mpio=""; var ds=$("#dep-select"); if(ds)ds.value=d.cod; poblarMunicipios(); renderMap2Side(d); resaltarMap2(); } else if(d){ renderMap2Side(d,true); } });
     layer.on("mouseover",function(){ layer.setStyle({weight:2.5,color:"#3a1354"}); layer.bringToFront(); renderMap2Side(d, nivel==="municipal"); });
     layer.on("mouseout",function(){ m2Layer.resetStyle(layer); });
   }
@@ -754,6 +764,59 @@
     // refrescar el bloque descriptivo del panel con el ámbito actual
     var selD = state.dep ? D.depByCod[state.dep] : null;
     pintarDescriptivoM2(selD);
+    resaltarMap2();
+    if(m2PendingZoom){ m2PendingZoom=false; zoomMap2ToSelection(); }
+  }
+
+  /* ---------- Sincronización filtro Ámbito territorial ↔ mapa interactivo ---------- */
+  function resaltarMap2(){
+    if(!m2Layer)return;
+    var isMuni=m2State.nivel==="municipal";
+    m2Layer.eachLayer(function(layer){
+      var p=layer.feature.properties;
+      var cod=isMuni?p.cod5:p.cod;
+      var sel = isMuni ? (state.mpio && cod===state.mpio) : (state.dep && cod===state.dep);
+      if(sel){ layer.setStyle({weight:2.8,color:MAGENTA}); layer.bringToFront(); }
+      else { m2Layer.resetStyle(layer); }
+    });
+  }
+  function zoomMap2ToSelection(){
+    if(!map2||!m2Layer)return;
+    var isMuni=m2State.nivel==="municipal";
+    if(state.mpio){
+      var f=null; m2Layer.eachLayer(function(l){ if(l.feature.properties.cod5===state.mpio)f=l; });
+      if(f){ try{ map2.fitBounds(f.getBounds(),{maxZoom:11,padding:[24,24]}); }catch(e){} f.openPopup(); }
+      return;
+    }
+    if(state.dep){
+      var group=[];
+      m2Layer.eachLayer(function(l){
+        var p=l.feature.properties;
+        var depcod = isMuni ? (p.cod2||String(p.cod5).slice(0,2)) : p.cod;
+        if(depcod===state.dep)group.push(l);
+      });
+      if(group.length){
+        var b=group[0].getBounds();
+        for(var i=1;i<group.length;i++)b.extend(group[i].getBounds());
+        try{ map2.fitBounds(b,{maxZoom:9,padding:[24,24]}); }catch(e){}
+        if(!isMuni)group[0].openPopup();
+      } else { map2.setView([4.6,-73.2],5); }
+      return;
+    }
+    map2.setView([4.6,-73.2],5);
+  }
+  function syncMap2FromFilter(){
+    if(!map2)return;
+    var wantMuni = !!state.mpio;
+    m2PendingZoom=true;
+    if(wantMuni && m2State.nivel!=="municipal"){
+      $("#nivel-select").value="municipal";
+      cambiarNivel("municipal"); // async → pintarMapa2 → zoom pendiente
+    } else {
+      pintarMapa2();
+    }
+    var d = state.mpio ? D.muniByCod[state.mpio] : (state.dep ? D.depByCod[state.dep] : null);
+    renderMap2Side(d, wantMuni);
   }
   function actualizarFuente2(){
     var capa=D.cfg.capas_mapa.filter(function(c){return c.id===m2State.capa;})[0];
