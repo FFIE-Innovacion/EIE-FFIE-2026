@@ -49,6 +49,7 @@
     D.deps.slice().sort(function(a,b){return a.nombre.localeCompare(b.nombre,"es");})
       .forEach(function(d){ var o=document.createElement("option"); o.value=d.cod; o.textContent=d.nombre; sel.appendChild(o); });
     sel.addEventListener("change",function(){ state.dep=sel.value; state.mpio=""; poblarMunicipios(); render(); syncMap2FromFilter(); });
+    makeComboBox(sel); // punto 4: desplegable con altura limitada que no cubre el mapa
     $("#mpio-select").addEventListener("change",function(){ state.mpio=this.value; render(); syncMap2FromFilter(); });
     $("#zona-select").addEventListener("change",function(){ state.zona=this.value; render(); });
     $("#btn-reset").addEventListener("click",resetAll);
@@ -69,6 +70,87 @@
     initMapa();
     construirMapasInteractivos();
     window.addEventListener("resize",function(){ Object.keys(charts).forEach(function(k){charts[k]&&charts[k].resize();}); radarChart&&radarChart.resize(); if(map)map.invalidateSize(); if(insetMap)insetMap.invalidateSize(); });
+  }
+
+  /* ---------- Desplegable personalizado del filtro "Ámbito territorial" (LOOP R2) ----------
+     Reemplaza visualmente el <select> nativo por una lista HTML cuya altura se limita
+     dinámicamente para que NO cubra el bloque del mapa (evita clics accidentales sobre él).
+     El <select> original permanece oculto como fuente de estado y opciones; al fijar su
+     .value desde cualquier parte del código (clic en el mapa, reinicio, etc.) la etiqueta
+     del desplegable se sincroniza automáticamente. */
+  function makeComboBox(sel){
+    if(!sel || sel.dataset.combo==="1") return;
+    sel.dataset.combo="1";
+    var combo=document.createElement("div"); combo.className="combo";
+    var btn=document.createElement("button"); btn.type="button"; btn.className="combo-btn";
+    btn.setAttribute("aria-haspopup","listbox"); btn.setAttribute("aria-expanded","false");
+    if(sel.getAttribute("aria-label")) btn.setAttribute("aria-label", sel.getAttribute("aria-label"));
+    var lab=document.createElement("span"); lab.className="combo-label"; btn.appendChild(lab);
+    var pop=document.createElement("div"); pop.className="combo-pop"; pop.hidden=true; pop.setAttribute("role","listbox");
+    var ul=document.createElement("ul"); ul.className="combo-list"; pop.appendChild(ul);
+    combo.appendChild(btn); combo.appendChild(pop);
+    sel.parentNode.insertBefore(combo, sel);
+    sel.style.display="none";
+
+    function build(){
+      ul.innerHTML="";
+      [].slice.call(sel.options).forEach(function(o){
+        var li=document.createElement("li"); li.setAttribute("role","option");
+        li.dataset.value=o.value; li.textContent=o.textContent;
+        li.addEventListener("click",function(){ choose(o.value); });
+        ul.appendChild(li);
+      });
+      sync();
+    }
+    function sync(){
+      var opt=sel.options[sel.selectedIndex];
+      lab.textContent=opt?opt.textContent:"";
+      var v=sel.value;
+      [].slice.call(ul.children).forEach(function(li){ li.classList.toggle("is-active", li.dataset.value===v); li.classList.remove("hl"); });
+    }
+    function choose(v){ sel.value=v; sel.dispatchEvent(new Event("change",{bubbles:true})); close(); btn.focus(); }
+    function capHeight(){
+      // limitar la altura hasta donde inicia el bloque del mapa del panel activo
+      var mapEl=document.querySelector("#panel-mapas.is-active #map2")||document.querySelector("#panel-resumen.is-active #map");
+      var top=pop.getBoundingClientRect().top;
+      var limit=mapEl?(mapEl.getBoundingClientRect().top-8):(window.innerHeight-8);
+      ul.style.maxHeight=Math.max(140, Math.round(limit-top-10))+"px";
+    }
+    function moveHl(dir){
+      var items=[].slice.call(ul.children); if(!items.length)return;
+      var i=items.findIndex(function(li){return li.classList.contains("hl");});
+      if(i<0)i=items.findIndex(function(li){return li.classList.contains("is-active");});
+      items.forEach(function(li){li.classList.remove("hl");});
+      i=(i+dir+items.length)%items.length; items[i].classList.add("hl"); items[i].scrollIntoView({block:"nearest"});
+    }
+    function open(){ if(!pop.hidden)return; pop.hidden=false; combo.classList.add("open"); btn.setAttribute("aria-expanded","true");
+      capHeight(); var a=ul.querySelector(".is-active")||ul.firstChild; if(a){ a.classList.add("hl"); a.scrollIntoView({block:"nearest"}); } }
+    function close(){ if(pop.hidden)return; pop.hidden=true; combo.classList.remove("open"); btn.setAttribute("aria-expanded","false");
+      [].slice.call(ul.children).forEach(function(li){ li.classList.remove("hl"); }); }
+
+    btn.addEventListener("click",function(e){ e.stopPropagation(); if(pop.hidden)open(); else close(); });
+    btn.addEventListener("keydown",function(e){
+      if(pop.hidden && (e.key==="ArrowDown"||e.key==="ArrowUp"||e.key==="Enter"||e.key===" ")){ e.preventDefault(); open(); }
+    });
+    document.addEventListener("keydown",function(e){
+      if(pop.hidden)return;
+      if(e.key==="ArrowDown"){ e.preventDefault(); moveHl(1); }
+      else if(e.key==="ArrowUp"){ e.preventDefault(); moveHl(-1); }
+      else if(e.key==="Enter"){ var h=ul.querySelector(".hl"); if(h){ e.preventDefault(); choose(h.dataset.value); } }
+      else if(e.key==="Escape"){ close(); btn.focus(); }
+    });
+    document.addEventListener("click",function(e){ if(!combo.contains(e.target)) close(); });
+    window.addEventListener("resize",function(){ if(!pop.hidden)capHeight(); });
+    window.addEventListener("scroll",function(){ if(!pop.hidden)capHeight(); }, true);
+
+    // sincronizar la etiqueta cuando el .value se fija por código (clic en mapa, reset, etc.)
+    var desc=Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,"value");
+    Object.defineProperty(sel,"value",{configurable:true,
+      get:function(){ return desc.get.call(this); },
+      set:function(v){ desc.set.call(this,v); sync(); }});
+
+    build();
+    return {rebuild:build, sync:sync};
   }
 
   function ctx(){ return state.dep?D.depByCod[state.dep]:null; }
@@ -309,15 +391,10 @@
   function construirGlosario(){
     var g=D.glos, cont=$("#glosario");
     var promNac=D.nac.dim_prom||{};
-    // Equipo interdisciplinario: mosaico con los logos de las nueve componentes
+    // Rejilla de logos/íconos retirada (LOOP R2): se conserva solo el texto introductorio.
     var team='<div class="gl-team">'+
       '<p class="gl-team-cap">Las nueve componentes del IEIE, valoradas por un equipo interdisciplinario y experto (estadística, diseño muestral, infraestructura educativa e indicadores compuestos):</p>'+
-      '<div class="gl-team-grid">'+
-      g.dimensiones.map(function(d){
-        return '<figure class="gl-team-item"><span class="gl-team-ic">'+dimIcon(d.cod,"gl-team-img")+'</span>'+
-          '<figcaption><b>'+d.cod+'</b><span>'+d.nombre+'</span></figcaption></figure>';
-      }).join("")+
-      '</div></div>';
+      '</div>';
     var acc=g.dimensiones.map(function(d,i){
       var pv=num(promNac[d.cod]);
       var rel = pv===null ? "Aporta al IEIE como uno de los nueve componentes." :
