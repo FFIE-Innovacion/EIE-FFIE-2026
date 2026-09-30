@@ -6,7 +6,7 @@
   var DIMS = ["D1","D2","D3","D4","D5","D6","D7","D8","D9"];
   var CATS = ["Adecuado","Aceptable","Deficiente","Crítico"];
   var CAT_COLOR = {Adecuado:"#2f9e8f",Aceptable:"#7cc0a8",Deficiente:"#e0a253","Crítico":"#d0594e","Critico":"#d0594e"};
-  var PURPLE="#3a1354", MAGENTA="#d6486e", TEAL="#2f9e8f", AMBER="#e0a253", BLUE="#4e79b8";
+  var PURPLE="#26408A", MAGENTA="#D72229", TEAL="#2f9e8f", AMBER="#e0a253", BLUE="#3366CC";
   var $=function(s,c){return (c||document).querySelector(s);};
   var $$=function(s,c){return [].slice.call((c||document).querySelectorAll(s));};
 
@@ -236,7 +236,7 @@
       series:[{type:"bar",data:r.map(function(d){
         var isSel=c&&d.cod===c.cod;
         return {value:+d.ieie.toFixed(2),itemStyle:{
-          color:isSel?MAGENTA:(d.suficiencia==="insuficiente"?"#c9bcd6":"#b79dc9"),
+          color:isSel?MAGENTA:(d.suficiencia==="insuficiente"?"#B9C4E0":"#8FA1CE"),
           decal:d.suficiencia==="insuficiente"?{symbol:"line",dashArrayX:[1,0],dashArrayY:[2,3],rotation:-Math.PI/4,color:"rgba(255,255,255,.55)"}:null,
           borderRadius:[0,4,4,0]}};
       }),barMaxWidth:13,label:{show:true,position:"right",fontSize:9.5,formatter:function(p){return p.value.toFixed(1);},color:"#574c63"}}]
@@ -321,7 +321,7 @@
     var series=[];
     if(lines.length)series.push({type:"custom",renderItem:function(p,api){
         var s=api.coord(lines[p.dataIndex][0]),e=api.coord(lines[p.dataIndex][1]);
-        return {type:"line",shape:{x1:s[0],y1:s[1],x2:e[0],y2:e[1]},style:{stroke:"#cbb8dd",lineWidth:2}};
+        return {type:"line",shape:{x1:s[0],y1:s[1],x2:e[0],y2:e[1]},style:{stroke:"#AEB9D9",lineWidth:2}};
       },data:lines,z:1,silent:true});
     series.push({name:"Nacional",type:"scatter",data:nacData,symbolSize:11,itemStyle:{color:PURPLE},z:2});
     if(c)series.push({name:c.nombre,type:"scatter",data:terrData,symbolSize:13,itemStyle:{color:MAGENTA},z:3});
@@ -332,7 +332,7 @@
         return dimName(d)+"<br/>"+(c?(c.nombre+": "+(tv===null?ETA:tv.toFixed(1))+"<br/>"):"")+"Nacional: "+(nv===null?ETA:nv.toFixed(1));
       }},
       xAxis:{type:"value",min:0,max:100,axisLabel:{fontSize:11}},
-      yAxis:{type:"category",data:rows.map(function(d){return d;}),axisLabel:{fontSize:12,fontWeight:600,color:"#3a1354",formatter:function(v){return v;}}},
+      yAxis:{type:"category",data:rows.map(function(d){return d;}),axisLabel:{fontSize:12,fontWeight:600,color:"#26408A",formatter:function(v){return v;}}},
       series:series
     },true);
 
@@ -378,8 +378,8 @@
   function pintarRadar(){
     var c=ctx(), terr=c?c.dim_prom:null, nacD=D.nac.dim_prom;
     var ind=DIMS.map(function(d){return {name:d,max:100};});
-    var data=[{value:DIMS.map(function(d){return num(nacD[d])||0;}),name:"Nacional",lineStyle:{color:PURPLE},itemStyle:{color:PURPLE},areaStyle:{color:"rgba(58,19,84,.10)"}}];
-    if(c)data.unshift({value:DIMS.map(function(d){return num(terr[d])||0;}),name:c.nombre,lineStyle:{color:MAGENTA},itemStyle:{color:MAGENTA},areaStyle:{color:"rgba(214,72,110,.15)"}});
+    var data=[{value:DIMS.map(function(d){return num(nacD[d])||0;}),name:"Nacional",lineStyle:{color:PURPLE},itemStyle:{color:PURPLE},areaStyle:{color:"rgba(38,64,138,.10)"}}];
+    if(c)data.unshift({value:DIMS.map(function(d){return num(terr[d])||0;}),name:c.nombre,lineStyle:{color:MAGENTA},itemStyle:{color:MAGENTA},areaStyle:{color:"rgba(215,34,41,.15)"}});
     radarChart.setOption({tooltip:{},legend:{bottom:0,textStyle:{fontSize:11}},
       radar:{indicator:ind,radius:"64%",axisName:{fontSize:11,color:"#574c63"}},
       series:[{type:"radar",data:data}]},true);
@@ -546,7 +546,7 @@
       xAxis:{type:"value",min:0,max:100},
       yAxis:{type:"category",data:["Nacional",s.nivel==="nacional"?"Nacional":s.nombre].filter(function(x,i,a){return a.indexOf(x)===i;})},
       series:[{type:"bar",data:(s.nivel==="nacional"?[{value:+D.nac.ieie_nacional.toFixed(2),itemStyle:{color:PURPLE}}]:
-        [{value:+D.nac.ieie_nacional.toFixed(2),itemStyle:{color:"#b79dc9"}},{value:+num(o.ieie).toFixed(2),itemStyle:{color:MAGENTA}}]),
+        [{value:+D.nac.ieie_nacional.toFixed(2),itemStyle:{color:"#8FA1CE"}},{value:+num(o.ieie).toFixed(2),itemStyle:{color:MAGENTA}}]),
         barMaxWidth:26,label:{show:true,position:"right",fontSize:11,formatter:function(p){return p.value.toFixed(1);}}}]
     },true);
 
@@ -645,7 +645,7 @@
   }
 
   /* ---------- MAPA (Leaflet) con inset San Andrés ---------- */
-  function rampaIEIE(v){ if(v===null)return "#dcd3e4"; if(v>=80)return "#2f9e8f"; if(v>=70)return "#7cc0a8"; if(v>=60)return "#cfe3b0"; if(v>=40)return "#e0a253"; return "#d0594e"; }
+  function rampaIEIE(v){ if(v===null)return "#D3D7E0"; if(v>=80)return "#2f9e8f"; if(v>=70)return "#7cc0a8"; if(v>=60)return "#cfe3b0"; if(v>=40)return "#e0a253"; return "#d0594e"; }
   function styleFeat(feat){
     var d=D.depByCod[feat.properties.cod]; var v=d?num(d.ieie):null;
     var st={fillColor:rampaIEIE(v),weight:1,color:"#fff",fillOpacity:.85};
@@ -686,7 +686,7 @@
       onAdd:function(){
         var div=L.DomUtil.create("div","inset-wrap");
         div.style.cssText="width:120px;height:120px;border:2px solid #fff;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.25);overflow:hidden;background:#eaf4f2;margin-top:8px";
-        div.innerHTML='<div id="inset-map" style="width:100%;height:92px"></div><div style="font-size:9.5px;text-align:center;padding:2px;background:#fff;color:#3a1354;font-weight:700">San Andrés, Prov. y Sta. Catalina</div>';
+        div.innerHTML='<div id="inset-map" style="width:100%;height:92px"></div><div style="font-size:9.5px;text-align:center;padding:2px;background:#fff;color:#26408A;font-weight:700">San Andrés, Prov. y Sta. Catalina</div>';
         L.DomEvent.disableClickPropagation(div);
         return div;
       }});
@@ -716,11 +716,11 @@
       '<span class="lk"><i style="background:#e0a253"></i>40–59 Deficiente</span>'+
       '<span class="lk"><i style="background:#d0594e"></i>&lt;40 Crítico</span>'+
       '<span class="lk lk-hatch"><i></i>Muestra insuficiente</span>'+
-      '<span class="lk"><i style="background:#dcd3e4"></i>Sin dato</span>';
+      '<span class="lk"><i style="background:#D3D7E0"></i>Sin dato</span>';
   }
 
   /* ---------- MAPAS INTERACTIVOS (LOOP 5) ---------- */
-  var CAT_DIM_COLOR={D1:"#4e79b8",D2:"#7b6aa0",D3:"#2f9e8f",D4:"#8fb05a",D5:"#59a5b0",D6:"#d0594e",D7:"#e0a253",D8:"#c77fa6",D9:"#6f9e6a"};
+  var CAT_DIM_COLOR={D1:"#3366CC",D2:"#7b6aa0",D3:"#2f9e8f",D4:"#8fb05a",D5:"#59a5b0",D6:"#d0594e",D7:"#e0a253",D8:"#c77fa6",D9:"#6f9e6a"};
   function construirMapasInteractivos(){
     var capaSel=$("#capa-select");
     D.cfg.capas_mapa.forEach(function(c){ var o=document.createElement("option"); o.value=c.id; o.textContent=c.titulo; capaSel.appendChild(o); });
@@ -757,24 +757,24 @@
 
   // escalas de color por capa (accesibles; insuficiente/sin dato SIEMPRE en gris neutro, nunca rojo)
   function colorFor(capa,d){
-    if(!d) return "#dcd3e4"; // sin info
+    if(!d) return "#D3D7E0"; // sin info
     if((capa==="ieie"||capa==="prioridad"||capa==="tematica"||capa==="cobertura"||capa==="perfil_ru"||capa==="dim_critica") && d.suficiencia==="insuficiente" && capa!=="suficiencia")
       { if(capa==="prioridad"||capa==="suficiencia") {} else return "#9aa0a6"; } // insuficiente = gris (no rojo)
-    if(capa==="ieie"){ var v=num(d.ieie); return v===null?"#dcd3e4":(v>=80?"#1b7a6b":v>=70?"#5cb59f":v>=60?"#b6dcc4":v>=40?"#e0a253":"#c0392b"); }
-    if(capa==="cobertura"){ var c=num(d.cobertura_pct); return c===null?"#dcd3e4":(c>=60?"#08519c":c>=45?"#3182bd":c>=30?"#6baed6":c>=15?"#bdd7e7":"#eff3ff"); }
+    if(capa==="ieie"){ var v=num(d.ieie); return v===null?"#D3D7E0":(v>=80?"#1b7a6b":v>=70?"#5cb59f":v>=60?"#b6dcc4":v>=40?"#e0a253":"#c0392b"); }
+    if(capa==="cobertura"){ var c=num(d.cobertura_pct); return c===null?"#D3D7E0":(c>=60?"#08519c":c>=45?"#3182bd":c>=30?"#6baed6":c>=15?"#bdd7e7":"#eff3ff"); }
     if(capa==="suficiencia"){ return d.suficiencia==="insuficiente"?"#9aa0a6":"#2f9e8f"; }
     if(capa==="dim_critica"){ return CAT_DIM_COLOR[d.dim_critica]||"#ccc"; }
-    if(capa==="perfil_ru"){ var u=num(d.ieie_urbano),r=num(d.ieie_rural); if(u===null||r===null)return "#dcd3e4"; var br=u-r; return br>=15?"#8c510a":br>=8?"#d8b365":br>=3?"#f6e8c3":br>=-3?"#c7eae5":"#5ab4ac"; }
-    if(capa==="prioridad"){ var p=d.prioridad_exploratoria; var m={alta:"#b5341f",media:"#e0a253",baja:"#2f9e8f",no_evaluable:"#9aa0a6",sin_info:"#dcd3e4"}; return m[p]||"#dcd3e4"; }
+    if(capa==="perfil_ru"){ var u=num(d.ieie_urbano),r=num(d.ieie_rural); if(u===null||r===null)return "#D3D7E0"; var br=u-r; return br>=15?"#8c510a":br>=8?"#d8b365":br>=3?"#f6e8c3":br>=-3?"#c7eae5":"#5ab4ac"; }
+    if(capa==="prioridad"){ var p=d.prioridad_exploratoria; var m={alta:"#b5341f",media:"#e0a253",baja:"#2f9e8f",no_evaluable:"#9aa0a6",sin_info:"#D3D7E0"}; return m[p]||"#D3D7E0"; }
     if(capa==="tematica"){
       if(esVarNum()){
         var qv=numQuintiles(), pv=numDeptoStat(d.cod);
-        if(qv===null||pv===null)return "#dcd3e4";
-        return pv>=qv[3]?"#7a0177":pv>=qv[2]?"#c51b8a":pv>=qv[1]?"#f768a1":pv>=qv[0]?"#fbb4b9":"#feebe2";
+        if(qv===null||pv===null)return "#D3D7E0";
+        return pv>=qv[3]?"#8E1519":pv>=qv[2]?"#D72229":pv>=qv[1]?"#E8646A":pv>=qv[0]?"#F4A6A9":"#FBE0E1";
       }
-      var val=temValue(d); return val===null?"#dcd3e4":(val>=75?"#7a0177":val>=50?"#c51b8a":val>=25?"#f768a1":val>=10?"#fbb4b9":"#feebe2");
+      var val=temValue(d); return val===null?"#D3D7E0":(val>=75?"#8E1519":val>=50?"#D72229":val>=25?"#E8646A":val>=10?"#F4A6A9":"#FBE0E1");
     }
-    return "#dcd3e4";
+    return "#D3D7E0";
   }
   function temValue(d){ // % de la variable temática seleccionada (usa módulos precomputados si existe)
     if(!d||!d.modulos)return null;
@@ -825,7 +825,7 @@
     layer.bindTooltip(nombre+(d?": IEIE "+fmt(d.ieie,1)+" · n="+fmtInt(d.muestra_valida):" · sin dato"),{sticky:true});
     layer.bindPopup(m2Popup(d,nombre,nivel));
     layer.on("click",function(){ if(nivel==="departamental"&&d){ state.dep=d.cod; state.mpio=""; var ds=$("#dep-select"); if(ds)ds.value=d.cod; poblarMunicipios(); renderMap2Side(d); resaltarMap2(); } else if(d){ renderMap2Side(d,true); } });
-    layer.on("mouseover",function(){ layer.setStyle({weight:2.5,color:"#3a1354"}); layer.bringToFront(); renderMap2Side(d, nivel==="municipal"); });
+    layer.on("mouseover",function(){ layer.setStyle({weight:2.5,color:"#26408A"}); layer.bringToFront(); renderMap2Side(d, nivel==="municipal"); });
     layer.on("mouseout",function(){ m2Layer.resetStyle(layer); });
   }
   function pintarMapa2(){
@@ -911,16 +911,16 @@
     else if(capa==="suficiencia")h=row("#2f9e8f","Suficiente (≥30)")+row("#9aa0a6","Insuficiente (<30)");
     else if(capa==="dim_critica")h=DIMS.map(function(d){return row(CAT_DIM_COLOR[d],d);}).join("");
     else if(capa==="perfil_ru")h=row("#8c510a","Urbano ≫ rural")+row("#d8b365","+8 a +15")+row("#f6e8c3","±")+row("#c7eae5","Rural ≥ urbano");
-    else if(capa==="prioridad")h=row("#b5341f","Necesidad alta")+row("#e0a253","Media")+row("#2f9e8f","Baja")+row("#9aa0a6","No evaluable")+row("#dcd3e4","Sin info");
+    else if(capa==="prioridad")h=row("#b5341f","Necesidad alta")+row("#e0a253","Media")+row("#2f9e8f","Baja")+row("#9aa0a6","No evaluable")+row("#D3D7E0","Sin info");
     else if(capa==="tematica"){
       if(esVarNum()){
         var qv=numQuintiles();
-        if(qv){ h=row("#7a0177","≥ "+qv[3].toFixed(1))+row("#c51b8a",qv[2].toFixed(1)+"–"+qv[3].toFixed(1))+row("#f768a1",qv[1].toFixed(1)+"–"+qv[2].toFixed(1))+row("#fbb4b9",qv[0].toFixed(1)+"–"+qv[1].toFixed(1))+row("#feebe2","< "+qv[0].toFixed(1))+'<span class="lk" style="color:#7c7488">(promedio por depto, quintiles)</span>'; }
-        else h=row("#dcd3e4","Sin datos suficientes");
+        if(qv){ h=row("#8E1519","≥ "+qv[3].toFixed(1))+row("#D72229",qv[2].toFixed(1)+"–"+qv[3].toFixed(1))+row("#E8646A",qv[1].toFixed(1)+"–"+qv[2].toFixed(1))+row("#F4A6A9",qv[0].toFixed(1)+"–"+qv[1].toFixed(1))+row("#FBE0E1","< "+qv[0].toFixed(1))+'<span class="lk" style="color:#7c7488">(promedio por depto, quintiles)</span>'; }
+        else h=row("#D3D7E0","Sin datos suficientes");
       }
-      else h=row("#7a0177","≥75%")+row("#c51b8a","50–74%")+row("#f768a1","25–49%")+row("#fbb4b9","10–24%")+row("#feebe2","<10%");
+      else h=row("#8E1519","≥75%")+row("#D72229","50–74%")+row("#E8646A","25–49%")+row("#F4A6A9","10–24%")+row("#FBE0E1","<10%");
     }
-    h+=row("#dcd3e4","Sin dato")+'<span class="lk lk-hatch"><i></i>Muestra insuficiente</span>';
+    h+=row("#D3D7E0","Sin dato")+'<span class="lk lk-hatch"><i></i>Muestra insuficiente</span>';
     L2.innerHTML=h;
   }
   function renderMap2Side(d,isMuni){
@@ -1009,7 +1009,7 @@
     var Ctl=L.Control.extend({options:{position:"topleft"},onAdd:function(){
       var div=L.DomUtil.create("div","inset-wrap");
       div.style.cssText="width:118px;height:120px;border:2px solid #fff;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.25);overflow:hidden;background:#eaf4f2;margin-top:8px";
-      div.innerHTML='<div id="m2-inset-map" style="width:100%;height:92px"></div><div style="font-size:9px;text-align:center;padding:2px;background:#fff;color:#3a1354;font-weight:700">San Andrés y Prov.</div>';
+      div.innerHTML='<div id="m2-inset-map" style="width:100%;height:92px"></div><div style="font-size:9px;text-align:center;padding:2px;background:#fff;color:#26408A;font-weight:700">San Andrés y Prov.</div>';
       L.DomEvent.disableClickPropagation(div); return div;
     }});
     map2.addControl(new Ctl());
@@ -1105,7 +1105,7 @@
     (s.d||[]).forEach(function(v,i){
       var cod="D"+(i+1); var val=v;
       var w=val===null?0:Math.max(2,Math.round(val));
-      var c=val===null?"#dcd3e4":(val>=80?"#2f9e8f":val>=60?"#7cc0a8":val>=40?"#e0a253":"#d0594e");
+      var c=val===null?"#D3D7E0":(val>=80?"#2f9e8f":val>=60?"#7cc0a8":val>=40?"#e0a253":"#d0594e");
       h+='<div class="exp-comp"><span class="ec-l" title="'+dimNames[cod]+'">'+cod+'</span><span class="ec-bar"><i style="width:'+w+'%;background:'+c+'"></i></span><span class="ec-v">'+(val===null?"n/c":fmt(val,0))+'</span></div>';
     });
     h+='</div>';
