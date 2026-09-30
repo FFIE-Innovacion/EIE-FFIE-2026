@@ -307,9 +307,16 @@
         <label for="exp-zona">Zona</label>
         <select id="exp-zona"><option value="">Todas</option><option value="Urbano">Urbana</option><option value="Rural">Rural</option></select>
       </div>
+      <div class="exp-f">
+        <label for="exp-buscar-por">Buscar por</label>
+        <select id="exp-buscar-por" disabled>
+          <option value="dane">Código DANE</option>
+          <option value="sede">Nombre de sede</option>
+        </select>
+      </div>
       <div class="exp-f exp-f-grow">
-        <label for="exp-buscar">Buscar por código DANE o nombre de sede</label>
-        <input type="search" id="exp-buscar" placeholder="Ej. 105001000078 o \u2018Escuela La Cima\u2019" autocomplete="off" disabled>
+        <label for="exp-buscar">Término de búsqueda</label>
+        <input type="search" id="exp-buscar" placeholder="Ej. 105001000078" autocomplete="off" disabled>
       </div>
     </div>
     <div class="exp-layout">

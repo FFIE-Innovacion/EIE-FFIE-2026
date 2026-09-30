@@ -1024,7 +1024,7 @@
   }
 
   /* ---------- EXPLORADOR DE SEDES (LOOP R1) ---------- */
-  var expState={dep:"",mun:"",zona:"",q:"",sort:"ieie",dir:-1,page:0,per:40,rows:[],all:[],cache:{}};
+  var expState={dep:"",mun:"",zona:"",by:"dane",q:"",sort:"ieie",dir:-1,page:0,per:40,rows:[],all:[],cache:{}};
   function construirExplorador(){
     var dsel=$("#exp-dep");
     D.deps.slice().sort(function(a,b){return a.nombre.localeCompare(b.nombre,"es");})
@@ -1032,6 +1032,12 @@
     dsel.addEventListener("change",function(){ expState.dep=this.value; expState.mun=""; expState.q=""; $("#exp-buscar").value=""; cargarSedesDep(this.value); });
     $("#exp-mun").addEventListener("change",function(){ expState.mun=this.value; expState.page=0; filtrarExplorador(); });
     $("#exp-zona").addEventListener("change",function(){ expState.zona=this.value; expState.page=0; filtrarExplorador(); });
+    var bpor=$("#exp-buscar-por");
+    if(bpor)bpor.addEventListener("change",function(){
+      expState.by=this.value; expState.page=0;
+      $("#exp-buscar").placeholder=(this.value==="sede")?"Ej. Escuela La Cima":"Ej. 105001000078";
+      filtrarExplorador();
+    });
     var bq=$("#exp-buscar"); var t=null;
     bq.addEventListener("input",function(){ clearTimeout(t); var v=this.value; t=setTimeout(function(){ expState.q=v.trim().toLowerCase(); expState.page=0; filtrarExplorador(); },200); });
     $$("#exp-table thead th").forEach(function(th){ th.addEventListener("click",function(){
@@ -1041,14 +1047,14 @@
     }); });
   }
   function cargarSedesDep(cod){
-    if(!cod){ expState.all=[]; $("#exp-mun").disabled=true; $("#exp-buscar").disabled=true; $("#exp-count").textContent="Selecciona un departamento para cargar sus sedes."; $("#exp-tbody").innerHTML=""; $("#exp-pager").innerHTML=""; return; }
+    if(!cod){ expState.all=[]; $("#exp-mun").disabled=true; $("#exp-buscar").disabled=true; $("#exp-buscar-por").disabled=true; $("#exp-count").textContent="Selecciona un departamento para cargar sus sedes."; $("#exp-tbody").innerHTML=""; $("#exp-pager").innerHTML=""; return; }
     $("#exp-count").textContent="Cargando sedes…";
     function done(arr){
       expState.all=arr; expState.cache[cod]=arr;
       var msel=$("#exp-mun"); msel.innerHTML='<option value="">Todos</option>';
       var muns={}; arr.forEach(function(s){ muns[s.mun]=(muns[s.mun]||0)+1; });
       Object.keys(muns).sort(function(a,b){return a.localeCompare(b,"es");}).forEach(function(m){ var o=document.createElement("option"); o.value=m; o.textContent=m+" ("+muns[m]+")"; msel.appendChild(o); });
-      msel.disabled=false; $("#exp-buscar").disabled=false;
+      msel.disabled=false; $("#exp-buscar").disabled=false; $("#exp-buscar-por").disabled=false;
       expState.mun=""; expState.zona=""; expState.q=""; expState.page=0; $("#exp-zona").value=""; filtrarExplorador();
     }
     if(expState.cache[cod])done(expState.cache[cod]);
@@ -1060,7 +1066,10 @@
     expState.rows=a.filter(function(s){
       if(mun&&s.mun!==mun)return false;
       if(zona&&s.zona!==zona)return false;
-      if(q){ var hay=(s.dane||"").toLowerCase().indexOf(q)>=0 || (s.sede||"").toLowerCase().indexOf(q)>=0 || (s.ie||"").toLowerCase().indexOf(q)>=0 || (s.mun||"").toLowerCase().indexOf(q)>=0; if(!hay)return false; }
+      if(q){
+        var campo=(expState.by==="sede")?((s.sede||"")+" "+(s.ie||"")):(s.dane||"");
+        if(campo.toLowerCase().indexOf(q)<0)return false;
+      }
       return true;
     });
     renderExplTabla();
