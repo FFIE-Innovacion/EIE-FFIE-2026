@@ -1047,14 +1047,14 @@
     }); });
   }
   function cargarSedesDep(cod){
-    if(!cod){ expState.all=[]; $("#exp-mun").disabled=true; $("#exp-buscar").disabled=true; $("#exp-buscar-por").disabled=true; $("#exp-count").textContent="Selecciona un departamento para cargar sus sedes."; $("#exp-tbody").innerHTML=""; $("#exp-pager").innerHTML=""; return; }
+    if(!cod){ expState.all=[]; $("#exp-mun").disabled=true; $("#exp-buscar").disabled=true; $("#exp-count").textContent="Selecciona un departamento para cargar sus sedes."; $("#exp-tbody").innerHTML=""; $("#exp-pager").innerHTML=""; return; }
     $("#exp-count").textContent="Cargando sedes…";
     function done(arr){
       expState.all=arr; expState.cache[cod]=arr;
       var msel=$("#exp-mun"); msel.innerHTML='<option value="">Todos</option>';
       var muns={}; arr.forEach(function(s){ muns[s.mun]=(muns[s.mun]||0)+1; });
       Object.keys(muns).sort(function(a,b){return a.localeCompare(b,"es");}).forEach(function(m){ var o=document.createElement("option"); o.value=m; o.textContent=m+" ("+muns[m]+")"; msel.appendChild(o); });
-      msel.disabled=false; $("#exp-buscar").disabled=false; $("#exp-buscar-por").disabled=false;
+      msel.disabled=false; $("#exp-buscar").disabled=false;
       expState.mun=""; expState.zona=""; expState.q=""; expState.page=0; $("#exp-zona").value=""; filtrarExplorador();
     }
     if(expState.cache[cod])done(expState.cache[cod]);
@@ -1105,7 +1105,8 @@
   function fichaSede(s){
     if(!s)return;
     $("#exp-ficha-nombre").textContent=s.sede||"Sede";
-    $("#exp-ficha-sub").textContent=(s.ie?s.ie+" · ":"")+s.mun+", "+s.dep+" · zona "+(s.zona||"—");
+    var _dep=(s.cod5&&D.depByCod[s.cod5.slice(0,2)])?D.depByCod[s.cod5.slice(0,2)].nombre:(s.dep||"");
+    $("#exp-ficha-sub").textContent=(s.ie?s.ie+" · ":"")+s.mun+(_dep?", "+_dep:"")+" · zona "+(s.zona||"—");
     var dimNames={D1:"Servicios básicos",D2:"Antigüedad y estado",D3:"Accesibilidad y entorno",D4:"Ambientes y capacidad",D5:"Ambientes inhabilitados",D6:"Condiciones físicas",D7:"Confort",D8:"Dotación y mobiliario",D9:"Afectación académica"};
     var cat=s.cat||"—"; var col=CAT_COLOR[cat.split(" ")[0]]||"#ccc";
     var h='<div class="exp-kpirow"><div class="kpi"><span class="k-lbl">IEIE</span><span class="k-val" style="color:'+col+'">'+fmt(s.ieie,1)+'</span><span class="k-sub">'+cat+'</span></div>'+
