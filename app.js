@@ -670,7 +670,7 @@
   }
   function initMapa(){
     map=L.map("map",{scrollWheelZoom:true,attributionControl:true}).setView([4.6,-73.2],5);
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",{attribution:'&copy; OpenStreetMap, &copy; CARTO',subdomains:"abcd",maxZoom:18}).addTo(map);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{attribution:'&copy; OpenStreetMap',subdomains:"abc",maxZoom:19}).addTo(map);
     // continente: excluir San Andrés del layer principal (se muestra en inset)
     var cont={type:"FeatureCollection",features:geo.features.filter(function(f){return f.properties.cod!=="88";})};
     geoLayer=L.geoJSON(cont,{style:styleFeat,onEachFeature:onEach}).addTo(map);
@@ -742,7 +742,7 @@
     $("#map2-reset").addEventListener("click",function(){ m2State.capa="ieie"; m2State.nivel="departamental"; capaSel.value="ieie"; $("#nivel-select").value="departamental"; $("#mt-tematica").hidden=true; $("#map-buscar").value=""; state.dep=""; state.mpio=""; if(map2){map2.setView([4.6,-73.2],5);} renderMap2Side(null); pintarMapa2(); });
 
     map2=L.map("map2",{scrollWheelZoom:true}).setView([4.6,-73.2],5);
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",{attribution:'&copy; OpenStreetMap, &copy; CARTO',subdomains:"abcd",maxZoom:18}).addTo(map2);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{attribution:'&copy; OpenStreetMap',subdomains:"abc",maxZoom:19}).addTo(map2);
     construirInset2();
     pintarMapa2(); renderMap2Side(null);
   }
