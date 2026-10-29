@@ -12,6 +12,12 @@ Reglas aplicadas (ver docs/DATA_DICTIONARY.md y VALIDATION_REPORT.md):
 - enc_departamento llega como codigo DANE numerico -> se mapea al nombre del marco.
 - Suficiencia: muestra_valida >= 30. Cobertura = muestra/marco (acotada a 100% con nota).
 - No se exporta ningun dato personal ni registro individual.
+
+LOOP ZONA (filtro por zona urbano/rural/total):
+- Se agrega un bloque `por_zona` a resumen_nacional/departamental/municipal con
+  marco, muestra, cobertura, ieie, dim_prom, dim_critica y dist_categoria por zona.
+- El MARCO por zona se obtiene de la hoja "Total" del libro del marco, columna "Zona".
+- La MUESTRA/IEIE por zona se obtienen de la base (enc_tipo_de_predio: Urbano/Rural).
 """
 import argparse, json, os
 from collections import defaultdict, Counter
@@ -26,6 +32,7 @@ DIM_LBL = {"D1":"Servicios públicos básicos","D2":"Antigüedad y estado genera
 "D3":"Accesibilidad, entorno y seguridad","D4":"Ambientes de aprendizaje y capacidad",
 "D5":"Ambientes inhabilitados","D6":"Condiciones físicas","D7":"Confort físico",
 "D8":"Dotación y mobiliario","D9":"Afectación académica"}
+ZONAS = ("total","urbano","rural")
 
 def prom(a):
     a=[x for x in a if x is not None]
@@ -42,6 +49,15 @@ def cod2_of(v):
     v=str(v).strip()
     if v.endswith(".0"): v=v[:-2]
     return v.zfill(2)
+def zkey(z):
+    """Normaliza el valor de zona a 'urbano'/'rural' (None si no aplica)."""
+    z=str(z or "").strip().upper()
+    if z.startswith("URBAN"): return "urbano"
+    if z.startswith("RURAL"): return "rural"
+    return None
+def dim_critica_de(dim_prom):
+    arr=[(d,dim_prom[d]) for d,_ in DIMS if dim_prom.get(d) is not None]
+    return sorted(arr,key=lambda x:x[1])[0][0] if arr else None
 
 def main():
     ap=argparse.ArgumentParser()
@@ -53,7 +69,15 @@ def main():
     wb=openpyxl.load_workbook(a.marco,read_only=True); ws=wb["Total"]
     it=ws.iter_rows(values_only=True); hdr=[str(h).strip() if h else h for h in next(it)]
     ix={h:i for i,h in enumerate(hdr)}
+    # localizar columna de zona (tolerante a variaciones de nombre)
+    col_zona = ix.get("Zona", ix.get("zona"))
+    if col_zona is None:
+        for h in hdr:
+            if h and ("zona" in str(h).lower() or "clase" in str(h).lower()):
+                col_zona=ix[h]; break
     cod2_nombre={}; marco_dep=Counter(); marco_mpio=Counter(); marco_total=0
+    # marco por zona
+    marco_total_z=Counter(); marco_dep_z=defaultdict(Counter); marco_mpio_z=defaultdict(Counter)
     for row in it:
         if row[ix["Código DANE Sede"]] is None: continue
         marco_total+=1
@@ -62,7 +86,14 @@ def main():
         mc=mc.zfill(5)
         cod2_nombre[mc[:2]]=str(row[ix["departamento"]]).strip()
         marco_dep[mc[:2]]+=1; marco_mpio[mc]+=1
+        zk = zkey(row[col_zona]) if col_zona is not None else None
+        marco_total_z["total"]+=1; marco_dep_z[mc[:2]]["total"]+=1; marco_mpio_z[mc]["total"]+=1
+        if zk:
+            marco_total_z[zk]+=1; marco_dep_z[mc[:2]][zk]+=1; marco_mpio_z[mc][zk]+=1
     wb.close()
+    if col_zona is None:
+        print("AVISO: no se encontró la columna 'Zona' en la hoja Total del marco; "
+              "marco/cobertura por zona quedarán en null.")
     def nombre_dep(c): return "Bogotá D.C." if c=="11" else cod2_nombre.get(c,c)
 
     # ----- base -----
@@ -72,6 +103,9 @@ def main():
         "crit":Counter(),"fuerte":Counter(),"cat":Counter()})
     mpio=defaultdict(lambda:{"ieie":[],"cod2":None})
     nac={"ieie":[],"urb":[],"rur":[],"dims":defaultdict(list),"cat":Counter()}
+    # acumuladores por zona para el bloque por_zona
+    def zbox(): return {z:{"ieie":[],"dims":defaultdict(list),"cat":Counter()} for z in ZONAS}
+    nacZ=zbox(); depZ=defaultdict(zbox); mpioZ=defaultdict(zbox)
     n999=Counter(); n_atip=0
     for row in it:
         if row[ix["Dato_Atipico"]] is True: n_atip+=1; continue
@@ -90,11 +124,44 @@ def main():
         D["cat"][cat]+=1; nac["cat"][cat]+=1
         D["crit"][str(row[ix["dimension_mas_critica"]]).strip()]+=1
         D["fuerte"][str(row[ix["dimension_mas_fuerte"]]).strip()]+=1
+        dimvals=[]
         for cod,col in DIMS:
             v=num(row[ix[col]])
             if str(row[ix[col]]).strip()=="999": n999[cod]+=1
             D["dims"][cod].append(v); nac["dims"][cod].append(v)
+            dimvals.append((cod,v))
+        # --- acumulación por zona (total + urbano/rural) ---
+        zk=zkey(zona)
+        def pushZ(box):
+            if ieie is not None: box["ieie"].append(ieie)
+            box["cat"][cat]+=1
+            for cod,v in dimvals: box["dims"][cod].append(v)
+        pushZ(nacZ["total"]); pushZ(depZ[c2]["total"]); pushZ(mpioZ[mc]["total"])
+        if zk:
+            pushZ(nacZ[zk]); pushZ(depZ[c2][zk]); pushZ(mpioZ[mc][zk])
     wb.close()
+
+    # ----- helpers de bloque por zona -----
+    def cob(nz,mk): return round(100*nz/mk,2) if mk else None
+    def bloque_zona(boxes, marco_z):
+        out={}
+        for z in ZONAS:
+            b=boxes[z]; nz=len(b["ieie"]); mk=(marco_z.get(z) if marco_z else None)
+            dp={c:prom(b["dims"][c]) for c,_ in DIMS}
+            c=cob(nz,mk)
+            if c is not None and c>100: c=100.0
+            out[z]={"marco":mk,"muestra":nz,"cobertura":c,"ieie":prom(b["ieie"]),
+                    "dim_prom":dp,"dim_critica":dim_critica_de(dp),
+                    "dist_categoria":dict(b["cat"])}
+        return out
+    def bloque_zona_muni(boxes, marco_z):
+        out={}
+        for z in ZONAS:
+            b=boxes[z]; nz=len(b["ieie"]); mk=(marco_z.get(z) if marco_z else None)
+            c=cob(nz,mk)
+            if c is not None and c>100: c=100.0
+            out[z]={"marco":mk,"muestra":nz,"cobertura":c,"ieie":prom(b["ieie"])}
+        return out
 
     n_val=len(nac["ieie"])
     resumen_nacional={"marco_total_sedes":marco_total,"muestra_valida":n_val,
@@ -106,7 +173,8 @@ def main():
       "n_municipios_con_info":len([m for m in mpio if mpio[m]["ieie"]]),
       "cobertura_territorial":"32 departamentos + Bogotá D.C.",
       "dist_categoria":dict(nac["cat"]),
-      "dim_prom":{c:prom(nac["dims"][c]) for c,_ in DIMS}}
+      "dim_prom":{c:prom(nac["dims"][c]) for c,_ in DIMS},
+      "por_zona":bloque_zona(nacZ, marco_total_z)}
     deps=[]
     for c2,Dd in dep.items():
         nv=len(Dd["ieie"]); marco_n=marco_dep.get(c2,0); ieie=prom(Dd["ieie"])
@@ -123,17 +191,19 @@ def main():
           "dim_critica":Dd["crit"].most_common(1)[0][0] if Dd["crit"] else None,
           "dim_fuerte":Dd["fuerte"].most_common(1)[0][0] if Dd["fuerte"] else None,
           "dim_prom":{c:prom(Dd["dims"][c]) for c,_ in DIMS},
-          "dist_categoria":dict(Dd["cat"])})
+          "dist_categoria":dict(Dd["cat"]),
+          "por_zona":bloque_zona(depZ[c2], marco_dep_z.get(c2))})
     deps.sort(key=lambda x:-(x["ieie"] or 0))
     munis=[]
     for mc,M in mpio.items():
         nv=len(M["ieie"]); marco_n=marco_mpio.get(mc,0)
-        cob=round(100*nv/marco_n,2) if marco_n else None
+        cobv=round(100*nv/marco_n,2) if marco_n else None
         row={"mpio_cod":mc,"departamento":nombre_dep(M["cod2"]) if M["cod2"] else None,
-          "marco_sedes":marco_n,"muestra_valida":nv,"cobertura_pct":cob,
+          "marco_sedes":marco_n,"muestra_valida":nv,"cobertura_pct":cobv,
           "ieie":prom(M["ieie"]),
-          "suficiencia":"suficiente" if nv>=UMBRAL_SUF else "insuficiente"}
-        if cob is not None and cob>100:
+          "suficiencia":"suficiente" if nv>=UMBRAL_SUF else "insuficiente",
+          "por_zona":bloque_zona_muni(mpioZ[mc], marco_mpio_z.get(mc))}
+        if cobv is not None and cobv>100:
             row["cobertura_pct"]=100.0
             row["nota_cobertura"]="Muestra > marco por diferencias del código municipal; cobertura acotada a 100%."
         munis.append(row)
@@ -155,6 +225,8 @@ def main():
       "territorios_advertencia":[d["nombre"] for d in deps if d["suficiencia"]=="insuficiente"]})
     print("OK — marco:",marco_total,"| válidas:",n_val,"| atípicos:",n_atip,
           "| IEIE:",resumen_nacional["ieie_nacional"])
+    print("Marco por zona (nacional):",dict(marco_total_z))
+    print("Muestra por zona (nacional):",{z:resumen_nacional["por_zona"][z]["muestra"] for z in ZONAS})
     print("NOTA: variables_detalle.json y módulos temáticos requieren el paso extendido",
           "(ver docs/DATA_DICTIONARY.md); este script cubre los agregados nucleares.")
 
