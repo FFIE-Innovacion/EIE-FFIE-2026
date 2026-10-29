@@ -51,7 +51,8 @@
     sel.addEventListener("change",function(){ state.dep=sel.value; state.mpio=""; poblarMunicipios(); render(); syncMap2FromFilter(); });
     makeComboBox(sel); // punto 4: desplegable con altura limitada que no cubre el mapa
     $("#mpio-select").addEventListener("change",function(){ state.mpio=this.value; render(); syncMap2FromFilter(); });
-    $("#zona-select").addEventListener("change",function(){ state.zona=this.value; render(); });
+    $("#zona-select").addEventListener("change",function(){ state.zona=this.value; render();
+      if(map2){ var d = state.mpio ? D.muniByCod[state.mpio] : (state.dep ? D.depByCod[state.dep] : null); renderMap2Side(d, !!state.mpio); } });
     $("#btn-reset").addEventListener("click",resetAll);
     $("#btn-map-reset").addEventListener("click",function(){ resetAll(); if(map)map.setView([4.6,-73.2],5); });
     $$(".tab").forEach(function(t){ t.addEventListener("click",function(){ activar(t.dataset.tab); }); });
@@ -188,7 +189,9 @@
     var nombre = m?m.nombre:(c?c.nombre:"Colombia");
     var sub = m?("en "+c.nombre):(c?(c.es_distrito_capital?"Distrito Capital":"Departamento"):"Total nacional");
     $("#scope-name").textContent=nombre; $("#scope-sub").textContent=sub;
-    $("#filter-hint").textContent = c?("Filtrando por "+nombre+(state.zona!=="total"?(" · zona "+state.zona):"")):"Vista nacional. Elige un ámbito o haz clic en el mapa.";
+    var zonaTxt = state.zona!=="total"?(" · zona "+(state.zona==="urbano"?"urbana":"rural")):"";
+    var pend = marcoZonaPendiente()?" · (marco y cobertura por zona: pendientes de regenerar)":"";
+    $("#filter-hint").textContent = (c?("Filtrando por "+nombre+zonaTxt):("Vista nacional"+zonaTxt+". Elige un ámbito o haz clic en el mapa."))+pend;
     pintarKPIs(); pintarRanking(); pintarRuralUrbano(); pintarDistribucion(); pintarCaution(); pintarNotas();
     pintarAnalisis(); pintarFicha();
     resaltarMapa();
@@ -200,18 +203,70 @@
     return obj.ieie!==undefined?obj.ieie:obj.ieie_nacional;
   }
 
+  /* ---------- Vista por zona (LOOP ZONA) ----------
+     Devuelve, para el ámbito (obj) y el nivel indicado, las cifras correspondientes
+     a la zona activa (state.zona): marco, muestra, cobertura, ieie, dim_crítica,
+     dim_prom y dist_categoria. Lee el bloque obj.por_zona[zona] generado por el
+     pipeline (agg_zona.py / preparar_datos.py). Si no existe, cae con elegancia a los
+     campos "total" del propio objeto, sin inventar valores (marco/cobertura => null). */
+  function zoneView(obj, nivel){
+    var isNac = (nivel==="nacional");
+    // base = cifras totales ya presentes en el objeto
+    var base = {
+      marco:   isNac ? (obj.marco_total_sedes) : (obj.marco_sedes),
+      muestra: obj.muestra_valida,
+      cobertura: obj.cobertura_pct,
+      ieie:    isNac ? obj.ieie_nacional : obj.ieie,
+      dim_prom: obj.dim_prom || null,
+      dist_categoria: obj.dist_categoria || null,
+      dim_critica: isNac ? null : (obj.dim_critica || null)
+    };
+    if(state.zona==="total") return base;              // total = comportamiento original
+    var pz = obj.por_zona && obj.por_zona[state.zona];
+    if(!pz){                                           // sin bloque por zona: solo IEIE de zona
+      return {
+        marco:null, muestra:null, cobertura:null,
+        ieie: (state.zona==="urbano" ? (obj.ieie_urbano!==undefined?obj.ieie_urbano:null)
+                                     : (obj.ieie_rural!==undefined?obj.ieie_rural:null)),
+        dim_prom: base.dim_prom, dist_categoria: base.dist_categoria, dim_critica: base.dim_critica
+      };
+    }
+    return {
+      marco: (pz.marco!==undefined ? pz.marco : null),
+      muestra: (pz.muestra!==undefined ? pz.muestra : null),
+      cobertura: (pz.cobertura!==undefined ? pz.cobertura : null),
+      ieie: (pz.ieie!==undefined ? pz.ieie : null),
+      dim_prom: pz.dim_prom || base.dim_prom,
+      dist_categoria: pz.dist_categoria || base.dist_categoria,
+      dim_critica: pz.dim_critica || base.dim_critica
+    };
+  }
+  // ¿la zona activa aún no tiene marco por zona cargado? (para avisos en la interfaz)
+  function marcoZonaPendiente(){
+    if(state.zona==="total") return false;
+    var pz = D.nac.por_zona && D.nac.por_zona[state.zona];
+    return !(pz && pz.marco!==null && pz.marco!==undefined);
+  }
+  // componente crítico (menor promedio) a partir de un dim_prom
+  function critDe(dimProm){
+    if(!dimProm) return null;
+    var arr=DIMS.map(function(d){return [d,num(dimProm[d])];}).filter(function(x){return x[1]!==null;}).sort(function(a,b){return a[1]-b[1];});
+    return arr.length?arr[0][0]:null;
+  }
+
   function ech(id){ if(!charts[id])charts[id]=echarts.init($("#"+id),null,{renderer:"canvas"}); return charts[id]; }
 
   /* ---------- KPIs ---------- */
   function pintarKPIs(){
     var c=ctx(), m=ctxMpio();
-    var marco,muestra,cob,ieie,crit,critLbl,suf;
-    if(m){ marco=m.marco_sedes; muestra=m.muestra_valida; cob=m.cobertura_pct; ieie=m.ieie; crit="—"; critLbl=""; suf=m.suficiencia; }
-    else if(c){ marco=c.marco_sedes; muestra=c.muestra_valida; cob=c.cobertura_pct; ieie=ieiePorZona(c); crit=c.dim_critica; critLbl=dimLbl[c.dim_critica]||""; suf=c.suficiencia; }
-    else { var n=D.nac; marco=n.marco_total_sedes; muestra=n.muestra_valida; cob=n.cobertura_pct; ieie=ieiePorZona(n);
-      // dim crítica nacional = menor promedio
-      var arr=DIMS.map(function(d){return [d,num(n.dim_prom[d])];}).filter(function(x){return x[1]!==null;}).sort(function(a,b){return a[1]-b[1];});
-      crit=arr[0][0]; critLbl=dimLbl[crit]||""; suf="suficiente"; }
+    var nivel = m?"municipio":(c?"departamento":"nacional");
+    var obj = m||c||D.nac;
+    var z = zoneView(obj, nivel);                 // cifras de la zona activa
+    var marco=z.marco, muestra=z.muestra, cob=z.cobertura, ieie=z.ieie;
+    var crit,critLbl,suf;
+    if(m){ crit="—"; critLbl=""; suf=m.suficiencia; }
+    else if(c){ crit=(state.zona==="total"?c.dim_critica:(z.dim_critica||c.dim_critica)); critLbl=dimLbl[crit]||""; suf=c.suficiencia; }
+    else { crit=(state.zona==="total"?critDe(D.nac.dim_prom):(z.dim_critica||critDe(D.nac.dim_prom))); critLbl=dimLbl[crit]||""; suf="suficiente"; }
     $("#kpi-marco").textContent=fmtInt(marco);
     $("#kpi-muestra").textContent=fmtInt(muestra);
     $("#kpi-cobertura").textContent=pct(cob);
@@ -264,7 +319,9 @@
 
   /* ---------- Distribución (barras apiladas 100%) ---------- */
   function pintarDistribucion(){
-    var c=ctx(), dist=c?c.dist_categoria:D.nac.dist_categoria;
+    var c=ctx();
+    var zD=zoneView(c||D.nac, c?"departamento":"nacional");
+    var dist = zD.dist_categoria || (c?c.dist_categoria:D.nac.dist_categoria);
     var total=CATS.reduce(function(s,k){return s+(dist[k]||dist[k==="Crítico"?"Critico":k]||0);},0)||1;
     var series=CATS.map(function(k){
       var val=dist[k]||dist[k==="Crítico"?"Critico":k]||0;
@@ -519,17 +576,22 @@
 
   function pintarFicha(){
     var s=fichaScope(), o=s.obj, c=ctx();
-    $("#ficha-nombre").textContent=s.nombre; $("#ficha-sub").textContent=s.sub;
+    $("#ficha-nombre").textContent=s.nombre;
+    $("#ficha-sub").textContent=s.sub+(state.zona!=="total"?(" · zona "+(state.zona==="urbano"?"urbana":"rural")):"");
     var suf = (s.nivel==="nacional")?"suficiente":(o.suficiencia||"suficiente");
     var chip=$("#ficha-chip");
     chip.className="chip-suf "+(suf==="insuficiente"?"warn":"ok");
     chip.textContent=suf==="insuficiente"?"⚠ Muestra insuficiente":"✔ Suficiencia adecuada";
 
-    var marco = s.nivel==="nacional"?D.nac.marco_total_sedes:o.marco_sedes;
-    var muestra = s.nivel==="nacional"?D.nac.muestra_valida:o.muestra_valida;
-    var cob = s.nivel==="nacional"?D.nac.cobertura_pct:o.cobertura_pct;
-    var ieie = s.nivel==="nacional"?D.nac.ieie_nacional:o.ieie;
-    var crit = s.nivel==="nacional"?dimCriticaNac():(o.dim_critica||"—");
+    var zf = zoneView(o, s.nivel);                 // cifras de la zona activa (ficha)
+    var marco = zf.marco;
+    var muestra = zf.muestra;
+    var cob = zf.cobertura;
+    var ieie = zf.ieie;
+    var crit = s.nivel==="municipio" ? "—"
+             : (state.zona==="total"
+                 ? (s.nivel==="nacional"?dimCriticaNac():(o.dim_critica||"—"))
+                 : (zf.dim_critica || (s.nivel==="nacional"?dimCriticaNac():(o.dim_critica||"—"))));
     $("#ficha-kpis").innerHTML=[
       ["Total de sedes (marco)",fmtInt(marco),"marco poblacional"],
       ["Muestra obtenida",fmtInt(muestra),"encuestas válidas"],
@@ -572,6 +634,18 @@
 
   function pintarNarrativa(s){
     var o=s.obj, nac=D.nac;
+    if(state.zona!=="total"){                       // narrativa específica de la zona activa
+      var zN=zoneView(o,s.nivel);
+      var zlbl=state.zona==="urbano"?"urbana":"rural";
+      var amb=s.nivel==="nacional"?"a nivel nacional":("en <b>"+s.nombre+"</b>");
+      var cobTxt=(zN.cobertura!==null&&zN.marco!==null)
+        ?("La cobertura de la encuesta en esta zona fue <b>"+pct(zN.cobertura)+"</b> ("+fmtInt(zN.muestra)+"/"+fmtInt(zN.marco)+" sedes). ")
+        :("La muestra válida en esta zona es de <b>"+fmtInt(zN.muestra)+"</b> sedes; el marco y la cobertura por zona se completan al regenerar los datos con el marco poblacional. ");
+      $("#ficha-narrativa").innerHTML="Para la zona <b>"+zlbl+"</b> "+amb+", el IEIE promedio es <b>"+fmt(zN.ieie,2)+"</b>"+(catOf(zN.ieie)?" ("+catOf(zN.ieie)+")":"")+". "+cobTxt+
+        (zN.dim_critica?("La componente con menor puntaje en esta zona es <b>"+dimName(zN.dim_critica)+"</b>. "):"")+
+        "El gráfico rural–urbana compara ambas zonas del ámbito.";
+      return;
+    }
     if(s.nivel==="nacional"){
       $("#ficha-narrativa").innerHTML="A nivel <b>nacional</b>, el IEIE promedio es <b>"+fmt(nac.ieie_nacional,2)+"</b> ("+catOf(nac.ieie_nacional)+"). "+
         "La encuesta cubrió <b>"+pct(nac.cobertura_pct)+"</b> del marco ("+fmtInt(nac.muestra_valida)+"/"+fmtInt(nac.marco_total_sedes)+" sedes). "+
@@ -924,17 +998,20 @@
     L2.innerHTML=h;
   }
   function renderMap2Side(d,isMuni){
-    if(!d){ $("#m2-name").textContent="Colombia"; $("#m2-sub").textContent="Vista nacional";
-      var n=D.nac;
-      $("#m2-kpis").innerHTML=kpiRow("IEIE nacional",fmt(n.ieie_nacional,2))+kpiRow("Muestra",fmtInt(n.muestra_valida))+kpiRow("Cobertura",pct(n.cobertura_pct));
+    var zlbl = state.zona!=="total"?(" · zona "+(state.zona==="urbano"?"urbana":"rural")):"";
+    if(!d){ $("#m2-name").textContent="Colombia"; $("#m2-sub").textContent="Vista nacional"+zlbl;
+      var zn=zoneView(D.nac,"nacional");
+      $("#m2-kpis").innerHTML=kpiRow(state.zona==="total"?"IEIE nacional":"IEIE zona",fmt(zn.ieie,2))+kpiRow("Muestra",fmtInt(zn.muestra))+kpiRow("Cobertura",pct(zn.cobertura));
       $("#m2-suf").hidden=true; $("#m2-note").textContent="Haz clic en un territorio para ver su ficha resumida.";
       pintarDescriptivoM2(null); return; }
     $("#m2-name").textContent=isMuni?(d.nombre+" ("+d.departamento+")"):d.nombre;
-    $("#m2-sub").textContent=isMuni?"Nivel municipal":(d.es_distrito_capital?"Distrito Capital":"Departamento");
-    $("#m2-kpis").innerHTML=kpiRow("IEIE",fmt(d.ieie,2)+(catOf(d.ieie)?" · "+catOf(d.ieie):""))+
-      kpiRow("Muestra / marco",fmtInt(d.muestra_valida)+" / "+fmtInt(d.marco_sedes))+
-      kpiRow("Cobertura",pct(d.cobertura_pct))+
-      (d.dim_critica?kpiRow("Comp. crítico",dimName(d.dim_critica)):"");
+    $("#m2-sub").textContent=(isMuni?"Nivel municipal":(d.es_distrito_capital?"Distrito Capital":"Departamento"))+zlbl;
+    var zt=zoneView(d, isMuni?"municipio":"departamento");
+    var critT=(state.zona==="total")?d.dim_critica:(zt.dim_critica||d.dim_critica);
+    $("#m2-kpis").innerHTML=kpiRow("IEIE",fmt(zt.ieie,2)+(catOf(zt.ieie)?" · "+catOf(zt.ieie):""))+
+      kpiRow("Muestra / marco",fmtInt(zt.muestra)+" / "+fmtInt(zt.marco))+
+      kpiRow("Cobertura",pct(zt.cobertura))+
+      (critT?kpiRow("Comp. crítico",dimName(critT)):"");
     var suf=$("#m2-suf");
     if(d.suficiencia==="insuficiente"){ suf.hidden=false; suf.className="chip-suf warn"; suf.textContent="⚠ No evaluable — requiere fortalecimiento de la muestra"; }
     else { suf.hidden=false; suf.className="chip-suf ok"; suf.textContent="✔ Suficiencia adecuada"; }
